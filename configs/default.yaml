@@ -1,0 +1,212 @@
+# =============================================================================
+# FBEWS - Forecast Bust Early Warning System
+# Master configuration. Everything that a scientist may want to change lives
+# here. No pipeline module is allowed to hardcode thresholds or paths.
+# =============================================================================
+
+project:
+  name: FBEWS
+  version: "0.1.0"
+  description: "Forecast Reliability / Forecast Bust Early Warning System"
+
+# -----------------------------------------------------------------------------
+# Data mode.
+#   sandbox : physically-motivated SYNTHETIC toy atmosphere generated locally.
+#             Used when no external network/credentials are available.
+#             NEVER to be presented as real weather.
+#   real    : real NWP + observations via src/fbews/ingestion/* clients.
+# -----------------------------------------------------------------------------
+data_mode: sandbox
+
+paths:
+  root: "."
+  raw: "data/raw"
+  interim: "data/interim"
+  processed: "data/processed"
+  features: "data/features"
+  labels: "data/labels"
+  samples: "data/samples"
+  products: "data/products"
+  models: "artifacts/models"
+  logs: "artifacts/logs"
+
+# -----------------------------------------------------------------------------
+# Analysis domain and common grid. All datasets are regridded onto this grid.
+# Coordinate convention: latitude ascending (deg north), longitude 0..360 East
+# converted to -180..180 on ingest; here we use 0..180 East which is
+# unambiguous for the Indian domain.
+# -----------------------------------------------------------------------------
+domain:
+  name: "India and surrounding region"
+  lat_min: 5.0
+  lat_max: 40.0
+  lon_min: 60.0
+  lon_max: 100.0
+  # Operational/real-data resolution. The sandbox uses grid.resolution below.
+  target_resolution_deg: 0.25
+  interpolation: "conservative_for_fluxes_bilinear_for_state"
+
+grid:
+  # Resolution actually used by the running prototype.
+  resolution: 1.0
+  # Feature/training points are sampled every N grid cells to keep the
+  # training table tractable; inference runs on every grid cell.
+  train_stride: 4
+
+# -----------------------------------------------------------------------------
+# Forecast configuration
+# -----------------------------------------------------------------------------
+forecast:
+  cycle_hour: 0           # 00 UTC initialisation
+  lead_days: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  accumulation_window_hours: 24   # precipitation accumulated 00-00 UTC
+  ensemble_members: 11
+
+# -----------------------------------------------------------------------------
+# Verification targets (PART 4)
+# -----------------------------------------------------------------------------
+verification:
+  variables:
+    precipitation:
+      units: "mm/day"
+      metrics: [absolute_error, bias, relative_error, threshold_exceedance]
+      thresholds_mm_day: [10.0, 25.0, 50.0, 100.0]
+    temperature:
+      units: "K"
+      metrics: [absolute_error, bias]
+    wind:
+      units: "m/s"
+      metrics: [vector_error, u_error, v_error]
+    pressure:
+      units: "hPa"
+      metrics: [absolute_error, bias]
+    geopotential:
+      units: "m"
+      levels: [500]
+      metrics: [absolute_error, bias]
+
+# -----------------------------------------------------------------------------
+# Forecast bust definition (PART 5). Fully configurable.
+#   method: percentile | absolute | hybrid
+#   percentile thresholds are computed from the TRAINING period only,
+#   stratified by lead time (and optionally by region/season).
+# -----------------------------------------------------------------------------
+bust:
+  method: hybrid
+  percentile: 90.0
+  stratify_by: [lead]
+  climatology_period: "training_split"
+  # Absolute floors, applied on top of the percentile threshold in hybrid mode.
+  # The values below are scaled to the SANDBOX error climatology. For real NWP
+  # over India the recommended operational starting values are
+  #   precipitation 35 mm/day, temperature 4 K, wind 6 m/s, pressure 4 hPa
+  # (see real_data_absolute_thresholds below); switch them when data_mode=real.
+  absolute_thresholds:
+    precipitation_mm_day: 5.0
+    temperature_k: 2.5
+    wind_ms: 4.0
+    pressure_hpa: 2.0
+  real_data_absolute_thresholds:
+    precipitation_mm_day: 35.0
+    temperature_k: 4.0
+    wind_ms: 6.0
+    pressure_hpa: 4.0
+  # A grid point is a "bust" for a given variable when the error exceeds the
+  # percentile threshold AND the absolute threshold (hybrid), avoiding
+  # labelling trivially small errors as busts in dry/quiet regimes.
+  primary_variable: precipitation
+  # Overall bust = bust in any of these variables
+  overall_variables: [precipitation, temperature, wind, pressure]
+
+# -----------------------------------------------------------------------------
+# Chronological splits (PART 34). No random splitting of weather samples.
+# -----------------------------------------------------------------------------
+splits:
+  train: ["2019-06-01", "2023-05-31"]
+  val:   ["2023-06-01", "2024-05-31"]
+  test:  ["2024-06-01", "2025-05-31"]
+  # Spatial cross-validation holdout (PART 36)
+  spatial_holdout_regions: ["East India", "Bay of Bengal"]
+
+# -----------------------------------------------------------------------------
+# Model ladder (PART 12)
+# -----------------------------------------------------------------------------
+models:
+  classifier_targets: [bust_overall, bust_precipitation, bust_temperature, bust_wind, bust_pressure]
+  regression_targets: [err_precip, err_t2m, err_wind, err_mslp]
+  ladder:
+    - climatology
+    - spread_only
+    - volatility_only
+    - logistic_regression
+    - random_forest
+    - gradient_boosting
+  calibration: isotonic     # platt | isotonic | none
+  random_forest:
+    n_estimators: 160
+    max_depth: 14
+    min_samples_leaf: 40
+    n_jobs: -1
+  gradient_boosting:
+    max_iter: 300
+    learning_rate: 0.07
+    max_leaf_nodes: 31
+    min_samples_leaf: 40
+    l2_regularization: 1.0
+    early_stopping: true
+  # Rows subsampled for the slow learners (RF) only
+  max_train_rows_rf: 120000
+
+# -----------------------------------------------------------------------------
+# Historical analogue engine (PART 10)
+# -----------------------------------------------------------------------------
+analogues:
+  n_neighbours: 25
+  feature_block: analogue_embedding
+  metric: euclidean
+  standardise: true
+  exclude_same_cycle_window_days: 5   # avoid trivial self-matches
+
+# -----------------------------------------------------------------------------
+# Confidence score (PART 17). UI interpretation only.
+# -----------------------------------------------------------------------------
+confidence:
+  bands:
+    high:      [80, 100]
+    moderate:  [60, 79]
+    low:       [40, 59]
+    very_low:  [0, 39]
+
+# -----------------------------------------------------------------------------
+# Weather regimes (PART 11)
+# -----------------------------------------------------------------------------
+regimes:
+  classes:
+    - normal
+    - active_monsoon
+    - break_monsoon
+    - monsoon_depression
+    - cyclonic_circulation
+    - tropical_cyclone
+    - heavy_rainfall
+    - western_disturbance
+    - heat_wave
+    - convective_instability
+
+# -----------------------------------------------------------------------------
+# Sandbox (synthetic) dataset generator. Only used when data_mode == sandbox.
+# -----------------------------------------------------------------------------
+sandbox:
+  seed: 20240601
+  start_date: "2019-06-01"
+  end_date: "2025-05-31"
+  cycle_interval_days: 7
+  # showcase cycles kept at full grid resolution for case studies
+  members: 11
+  label: "SYNTHETIC SANDBOX - physically motivated toy dynamics, NOT real weather"
+
+api:
+  host: "0.0.0.0"
+  port: 8008
+  cors_origins: ["*"]
+  rate_limit_per_minute: 120

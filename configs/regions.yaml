@@ -1,0 +1,53 @@
+# Analysis regions used for region-wise aggregation (PART 19).
+# Boxes are deliberately coarse and are NOT official IMD meteorological
+# subdivisions. To use official subdivisions, drop a polygon file in
+# data/raw/ and point regions.polygon_source at it (see docs/limitations.md).
+regions:
+  - id: nw_india
+    name: "Northwest India"
+    kind: land
+    bbox: [24.0, 32.5, 68.0, 78.0]     # lat_min, lat_max, lon_min, lon_max
+  - id: west_india
+    name: "West India"
+    kind: land
+    bbox: [17.0, 24.0, 68.0, 77.0]
+  - id: central_india
+    name: "Central India"
+    kind: land
+    bbox: [18.0, 26.0, 77.0, 85.0]
+  - id: east_india
+    name: "East India"
+    kind: land
+    bbox: [20.0, 27.0, 85.0, 92.0]
+  - id: northeast_india
+    name: "Northeast India"
+    kind: land
+    bbox: [23.0, 29.0, 89.0, 97.0]
+  - id: peninsular_india
+    name: "Peninsular India"
+    kind: land
+    bbox: [8.0, 17.0, 74.0, 81.0]
+  - id: west_coast
+    name: "West Coast and Ghats"
+    kind: land
+    bbox: [8.0, 20.0, 72.0, 76.0]
+  - id: himalaya
+    name: "Himalayan belt"
+    kind: land
+    bbox: [28.0, 36.0, 72.0, 92.0]
+  - id: arabian_sea
+    name: "Arabian Sea"
+    kind: ocean
+    bbox: [8.0, 22.0, 60.0, 72.0]
+  - id: bay_of_bengal
+    name: "Bay of Bengal"
+    kind: ocean
+    bbox: [8.0, 22.0, 82.0, 94.0]
+  - id: equatorial_io
+    name: "Equatorial Indian Ocean"
+    kind: ocean
+    bbox: [5.0, 10.0, 65.0, 95.0]
+  - id: pak_afg
+    name: "Pakistan and Afghanistan"
+    kind: land
+    bbox: [25.0, 37.0, 60.0, 72.0]

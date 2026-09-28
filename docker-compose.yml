@@ -1,0 +1,22 @@
+services:
+  fbews:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      FBEWS_DATA_MODE: ${FBEWS_DATA_MODE:-sandbox}
+      CDSAPI_KEY: ${CDSAPI_KEY:-}
+      ECMWF_API_KEY: ${ECMWF_API_KEY:-}
+      ECMWF_API_EMAIL: ${ECMWF_API_EMAIL:-}
+      EARTHDATA_TOKEN: ${EARTHDATA_TOKEN:-}
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8008/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 300s

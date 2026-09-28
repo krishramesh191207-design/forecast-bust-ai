@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: foresight-fbews
+    runtime: docker
+    repo: https://github.com/krishramesh191207-design/forecast-bust-ai
+    branch: main
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: FBEWS_DATA_MODE
+        value: sandbox
