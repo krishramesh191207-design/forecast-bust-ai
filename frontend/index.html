@@ -159,6 +159,11 @@ body{
   display:flex;align-items:center;justify-content:center;
   font-size:18px;
 }
+.hdr-ncmrwf-logo img{
+  width:auto;height:auto;
+  max-width:100%;max-height:100%;
+  object-fit:contain;display:block;
+}
 .hdr-ncmrwf-text{font-size:10px;color:var(--t2);line-height:1.35}
 .hdr-ncmrwf-text strong{font-size:11px;color:var(--t1);display:block;font-weight:600}
 
@@ -305,12 +310,22 @@ body{
   flex:1;
   overflow-y:auto;
   overflow-x:hidden;
-  padding:10px 12px 24px;
+  padding:10px 12px 16px;
   background:var(--bg);
   background-image:radial-gradient(ellipse at 50% 0%,rgba(255,138,0,0.06) 0%,transparent 55%);
+  /* column flex box so the Overview can fill the viewport instead of
+     dictating a document height that the whole page has to scroll for */
+  display:flex;
+  flex-direction:column;
 }
 .view{display:none}
 .view.active{display:block}
+/* Overview behaves like an application workspace: it owns exactly the
+   height left under the header/subnav, and every column scrolls itself. */
+#view-overview.active{
+  display:flex;flex-direction:column;
+  flex:1 1 auto;min-height:0;
+}
 
 /* ═══════════════════════════════════
    KPI ROW
@@ -357,14 +372,75 @@ body{
   display:grid;
   grid-template-columns:220px minmax(0,1.82fr) minmax(0,1fr);
   gap:10px;
-  align-items:start;
+  /* stretch: all three columns share one row height instead of each growing
+     to its own content height (that is what made the page scroll) */
+  align-items:stretch;
+  flex:1 1 auto;
+  /* safety valve: never collapse the workspace on very short windows - #main
+     scrolls again rather than squashing the map into nothing */
+  min-height:360px;
 }
 .overview-sidebar{
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:6px;
   min-width:0;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:1px;
 }
+/* ── collapsible sidebar sections (operations sidebar) ── */
+.sb-sec{
+  display:flex;flex-direction:column;
+  flex:0 0 auto;
+}
+.sb-sec .sb-hdr{
+  padding:5px 7px 5px 10px;
+  gap:2px 6px;
+  flex-wrap:wrap;
+}
+.sb-hdr .card-title{line-height:1.3;min-width:0;flex:0 1 auto}
+/* an action button would squeeze a long title into 3 lines - give the title
+   its own row instead, action right-aligned underneath */
+.sb-sec:has(.sb-acts .card-action) .sb-hdr .card-title{flex:1 1 100%}
+.sb-sec:has(.sb-acts .card-action) .sb-hdr .sb-acts{margin-left:auto}
+.sb-acts{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.sb-acts .card-action{font-size:10.5px;padding:1px 6px}
+.sb-toggle{
+  width:19px;height:19px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg4);border:1px solid var(--bd);border-radius:4px;
+  color:var(--t2);font:inherit;font-size:13px;line-height:1;
+  cursor:pointer;transition:all 120ms ease;padding:0;
+}
+.sb-toggle:hover{color:var(--accent-hi);border-color:var(--bd-acc);background:var(--accent-dim)}
+.sb-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sb-toggle::after{content:'+'}
+.sb-sec.is-open .sb-toggle::after{content:'\2212'}
+.sb-panel{padding:0 0 2px}
+.sb-panel[hidden]{display:none}
+/* watchlist: header fixed, only the row list scrolls - sized off the
+   viewport so the four sections fit the sidebar without a page scrollbar */
+.sb-sec[data-sec="watch"] .tbl-wrap{
+  max-height:clamp(140px, calc(100vh - 680px), 300px);
+  border-radius:0;
+}
+/* model snapshot: compact 2x2, no tall cards */
+.sb-panel .card-body{padding:5px 8px}
+.sb-panel .metric-grid{margin-bottom:0;gap:5px}
+.sb-panel .metric-block{padding:4px 6px}
+.sb-panel .metric-val{font-size:16px;line-height:1.15}
+.sb-panel .metric-lbl{font-size:9px;line-height:1.25;letter-spacing:.03em}
+/* uncertain variables: tight rows */
+.sb-sec[data-sec="drivers"] .model-section-title{margin:8px 10px 5px}
+.sb-sec[data-sec="drivers"] .metric-bars{padding:0 10px 9px;gap:3px}
+/* historical case: collapsed shows identity + action only */
+.sb-case{padding:5px 8px 6px}
+.sb-case .cs-title{margin-bottom:0;font-size:12px}
+.sb-case .cs-date{margin-bottom:4px;line-height:1.3}
+.sb-case .btn-outline{font-size:11px;padding:3px 9px}
+.sb-sec[data-sec="case"]:not(.is-open) [data-cs-open]{display:none}
 /* keep the old 2-col name for non-overview sections */
 .main-cols{
   display:grid;
@@ -406,7 +482,7 @@ body{
 /* ═══════════════════════════════════
    MAP CARD
 ═══════════════════════════════════ */
-#mapCard{display:flex;flex-direction:column}
+#mapCard{display:flex;flex-direction:column;min-height:0}
 .map-toolbar{
   display:flex;align-items:center;gap:8px;
   padding:6px 10px;
@@ -509,7 +585,12 @@ select option{background:var(--bg3);color:var(--t1)}
 
 #mapWrap{
   position:relative;background:#0A0908;
+  /* the clamp is the *ideal* height (stacked layouts use it verbatim); in the
+     three-column workspace flex takes over so the map claims whatever room is
+     left after the card header + toolbar - it stays the dominant element */
   height:clamp(360px, calc(100vh - 344px), 860px);
+  flex:1 1 auto;
+  min-height:0;
   overflow:hidden;
 }
 canvas#map{
@@ -613,62 +694,90 @@ canvas#map.is-panning{cursor:grabbing}
   display:flex;justify-content:space-between;
   font-size:9px;color:var(--t3);line-height:1;
 }
-/* tooltip */
+/* tooltip — compact hover preview (full detail lives in the analysis panel) */
 #tip{
-  position:absolute;pointer-events:none;
+  position:absolute;left:0;top:0;pointer-events:none;
   background:rgba(15,12,10,.96);
   border:1px solid rgba(255,138,0,.38);
   border-top:2px solid var(--accent);
   backdrop-filter:blur(10px);
-  padding:0;border-radius:9px;
-  font-size:11.5px;display:none;white-space:nowrap;
+  padding:0;border-radius:8px;
+  font-size:11.5px;white-space:nowrap;
   box-shadow:0 12px 34px rgba(0,0,0,.6),0 0 18px rgba(var(--accent-rgb),.10);
   color:var(--t2);
-  min-width:184px;
+  width:max-content;
+  min-width:180px;max-width:240px;
   z-index:50;
   overflow:hidden;
+  opacity:0;visibility:hidden;
+  transition:opacity .1s linear,visibility 0s linear .1s;
+}
+#tip.is-on{
+  opacity:1;visibility:visible;
+  transition:opacity .12s ease-out,visibility 0s;
 }
 .tip-hd{
-  padding:8px 12px 7px;
+  padding:5px 10px 4px;
   background:linear-gradient(180deg,rgba(255,138,0,.16),rgba(255,138,0,0));
   border-bottom:1px solid var(--bd-warm);
 }
-.tip-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2}
-.tip-sub{font-size:10px;color:var(--t3);margin-top:2px}
-.tip-body{padding:7px 12px 9px}
+.tip-title{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
+.tip-sub{font-size:9.5px;color:var(--t3);margin-top:1px;line-height:1.25}
+.tip-body{padding:4px 10px 5px}
 .tip-row{
   display:flex;align-items:center;justify-content:space-between;
-  gap:14px;padding:2.5px 0;
+  gap:10px;padding:1.5px 0;
 }
-.tip-k{font-size:11px;color:var(--t3)}
-.tip-v{font-size:12px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums}
+#tip .risk-pill{padding:1.5px 6px;font-size:9.5px;line-height:1.3}
+.tip-k{font-size:10.5px;color:var(--t3);white-space:nowrap}
+.tip-v{font-size:11.5px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums}
 .tip-v small{font-size:9.5px;font-weight:400;color:var(--t3)}
 .tip-hint{
-  font-size:9.5px;color:var(--t3);
-  margin-top:6px;padding-top:6px;
+  font-size:9px;color:var(--t3);
+  margin-top:4px;padding-top:4px;
   border-top:1px dashed var(--bd);
-  white-space:normal;
+  white-space:nowrap;
+}
+/* small screens: anchored bottom sheet instead of a floating card.
+   The sheet keeps the same content budget as the hover card - it is an
+   anchor, not a bigger panel. */
+@media (max-width:760px){
+  #tip,#tip.tip-sheet{
+    left:8px!important;right:8px;top:auto!important;bottom:8px!important;
+    max-width:none;min-width:0;width:auto;
+  }
+  /* keep the legend clear of the bottom sheet */
+  .map-legend{max-height:46%;overflow:auto}
 }
 
 /* ═══════════════════════════════════
    ANALYSIS PANEL
 ═══════════════════════════════════ */
-#panel{display:flex;flex-direction:column;position:relative}
+#panel{display:flex;flex-direction:column;position:relative;min-height:0}
 #panel::before{
   content:'';position:absolute;top:0;left:0;right:0;height:2px;z-index:2;
   background:linear-gradient(90deg,var(--accent),var(--gold));
 }
+/* FIXED part of the panel: title + lead badge, then the state/capital strip,
+   then the subtab bar. Only .panel-body below it is allowed to scroll. */
 .panel-hdr{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;
+  padding:6px 10px;
   border-bottom:1px solid var(--bd);
   gap:8px;
+  flex:0 0 auto;
+}
+.panel-locstrip{
+  padding:4px 8px;
+  border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;gap:6px;
+  flex:0 0 auto;
 }
 .panel-title{font-size:13px;font-weight:600;color:var(--t1)}
 .lead-badge{
   background:var(--red);
   color:#fff;
-  padding:3px 10px;
+  padding:3px 8px;
   border-radius:var(--r);
   font-size:10.5px;font-weight:600;
   flex-shrink:0;
@@ -687,10 +796,57 @@ canvas#map.is-panning{cursor:grabbing}
 .panel-location svg{width:12px;height:12px;color:var(--t3);flex-shrink:0}
 .panel-location span{min-width:0;line-height:1.4;overflow-wrap:anywhere}
 
+/* ── subtab bar: compact, orange active state, scrolls sideways instead of
+      growing the panel on narrow screens ── */
+.panel-tabs{
+  display:flex;align-items:center;gap:2px;
+  padding:3px 6px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--bd);
+  overflow-x:auto;
+  overflow-y:hidden;
+  flex:0 0 auto;
+  scrollbar-width:thin;
+}
+.panel-tabs::-webkit-scrollbar{height:4px}
+.panel-tabs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.p-tab{
+  background:transparent;
+  border:1px solid transparent;
+  color:var(--t3);
+  font:inherit;font-size:11px;font-weight:600;
+  padding:3px 8px;
+  border-radius:var(--r);
+  cursor:pointer;
+  white-space:nowrap;
+  flex-shrink:0;
+  transition:background 120ms ease,color 120ms ease,border-color 120ms ease;
+}
+.p-tab:hover{color:var(--t1);background:var(--bg5)}
+.p-tab[aria-selected="true"]{
+  background:var(--accent);
+  color:#120A02;
+  border-color:var(--accent);
+  box-shadow:0 2px 9px rgba(var(--accent-rgb),.30);
+}
+.p-tab:focus-visible{outline:2px solid var(--accent-hi);outline-offset:1px}
+
 .panel-body{
   padding:10px;
   overflow-y:auto;
-  flex:1;
+  overflow-x:hidden;
+  flex:1 1 auto;
+  min-height:0;
+  scrollbar-width:thin;
+}
+.p-loading{
+  display:flex;align-items:center;gap:7px;
+  padding:14px 4px;color:var(--t3);font-size:11.5px;
+}
+.p-spin{
+  width:12px;height:12px;border-radius:50%;flex-shrink:0;
+  border:2px solid var(--bd);border-top-color:var(--accent);
+  animation:spin .8s linear infinite;
 }
 /* two big metric tiles */
 .panel-tiles{
@@ -714,27 +870,28 @@ canvas#map.is-panning{cursor:grabbing}
 .p-tile-sub.rain{color:var(--amber)}
 .p-tile-sub.low{color:var(--amber)}
 
-/* metadata grid */
+/* metadata grid (Overview subtab: exactly 6 cells, 3x2) */
 .p-meta{
-  display:grid;grid-template-columns:auto auto auto auto;
-  gap:4px 0;
-  margin-bottom:10px;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  margin-bottom:0;
   border:1px solid var(--bd);
   border-radius:var(--r);
   overflow:hidden;
 }
 .p-meta-cell{
-  padding:6px 9px;
+  padding:5px 9px;
   border-right:1px solid var(--bd);
   border-bottom:1px solid var(--bd);
+  min-width:0;
 }
-.p-meta-cell:nth-child(4n){border-right:none}
-.p-meta-cell:nth-last-child(-n+4){border-bottom:none}
-.p-meta-key{font-size:9.5px;color:var(--t2);margin-bottom:2px}
-.p-meta-val{font-size:11.5px;color:var(--t1);font-weight:500}
+.p-meta-cell:nth-child(3n){border-right:none}
+.p-meta-cell:nth-last-child(-n+3){border-bottom:none}
+.p-meta-key{font-size:9.5px;color:var(--t2);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-meta-val{font-size:11.5px;color:var(--t1);font-weight:500;overflow-wrap:anywhere}
 
-/* forecast change block (analysis panel) */
-.p-chg{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+/* forecast change block - lives in the Change subtab now, so no trailing gap */
+.p-chg{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:0}
 .p-chg-hd{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
   padding:5px 9px;background:rgba(255,138,0,.08);
@@ -753,7 +910,7 @@ canvas#map.is-panning{cursor:grabbing}
 .p-chg-note{padding:7px 9px;font-size:10.5px;color:var(--t2);line-height:1.55}
 .p-chg-empty{
   border:1px dashed var(--bd);border-radius:var(--r);
-  padding:7px 9px;margin-bottom:10px;
+  padding:7px 9px;margin-bottom:0;
   font-size:10.5px;color:var(--t2);line-height:1.55;
 }
 
@@ -833,6 +990,107 @@ canvas#map.is-panning{cursor:grabbing}
 /* explanations */
 .p-reasons ol{padding-left:14px;display:flex;flex-direction:column;gap:5px}
 .p-reasons li{font-size:11.5px;color:var(--t2);line-height:1.5}
+
+/* ── subtab content: section heading (mirrors .p-section-title) ── */
+.p-sec-hd{
+  font-size:10px;font-weight:600;color:var(--t2);
+  text-transform:uppercase;letter-spacing:.07em;
+  margin:0 0 6px;
+  display:flex;align-items:center;gap:6px;
+}
+.p-sec-hd::after{content:'';flex:1;height:1px;background:var(--bd)}
+.p-sec-hd:first-child{margin-top:0}
+.p-block{margin-bottom:12px}
+.p-block:last-child{margin-bottom:0}
+
+/* ── Drivers: compact, collapsible attribution rows ── */
+.drv-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.drv-chip{
+  background:rgba(255,138,0,.10);
+  border:1px solid rgba(255,138,0,.22);
+  border-radius:4px;padding:3px 9px;
+  font-size:11px;color:var(--t2);
+}
+.drv-chip.amber{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.2);color:var(--amber)}
+.drv-chip strong{color:var(--cyan);font-weight:600;text-transform:capitalize}
+.drv-chip.amber strong{color:var(--amber)}
+.drv-sum{
+  font-size:11.5px;color:var(--t2);line-height:1.55;
+  background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);
+  padding:7px 9px;margin-bottom:8px;
+}
+.drv-list{display:flex;flex-direction:column;gap:4px}
+details.drv{
+  background:var(--bg2);
+  border:1px solid var(--bd);
+  border-radius:var(--r);
+  overflow:hidden;
+}
+details.drv[open]{border-color:var(--bd-acc)}
+details.drv summary{
+  list-style:none;cursor:pointer;
+  display:flex;align-items:flex-start;gap:8px;
+  padding:7px 9px;
+  font-size:11.5px;color:var(--t1);line-height:1.45;
+}
+details.drv summary::-webkit-details-marker{display:none}
+details.drv summary:hover{background:var(--bg5)}
+details.drv summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.drv-n{
+  flex-shrink:0;width:16px;height:16px;border-radius:4px;
+  background:var(--accent-dim);color:var(--accent-hi);
+  font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  margin-top:1px;
+}
+.drv-t{flex:1;min-width:0}
+.drv-p{flex-shrink:0;margin-top:1px}
+.drv-b{
+  display:flex;flex-wrap:wrap;gap:4px 14px;
+  padding:0 9px 8px 33px;
+  font-size:10.5px;color:var(--t3);
+}
+.drv-b b{color:var(--t2);font-weight:500}
+.drv-b code{
+  font-family:'SF Mono',Menlo,monospace;font-size:10px;
+  color:var(--cyan);background:rgba(255,138,0,.07);
+  border:1px solid rgba(255,138,0,.16);border-radius:3px;padding:0 4px;
+}
+.drv-note{font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:8px}
+.drv-fallback{
+  font-size:11.5px;color:var(--t1);line-height:1.5;
+  padding:7px 0;border-bottom:1px solid var(--bd);
+}
+.drv-fallback:last-child{border-bottom:none}
+
+/* ── Timeline ── */
+.tl-spark{max-width:320px;margin-bottom:4px}
+.tl-spark .chartbox{padding:4px}
+/* stability keeps its own heading in this subtab */
+.p-block .stab{margin-top:0}
+
+/* ── Diagnostics: expert-mode key/value rows ── */
+.p-attr{display:flex;flex-direction:column;gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+.p-attr-row{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg2);padding:5px 9px;font-size:11px;
+}
+.p-attr-blk{
+  flex-shrink:0;min-width:34px;text-align:center;
+  background:var(--accent-dim);color:var(--accent-hi);
+  border:1px solid rgba(255,138,0,.24);border-radius:3px;
+  font-size:9.5px;font-weight:700;text-transform:uppercase;
+  padding:1px 4px;
+}
+.p-attr-lbl{flex:1;min-width:0;color:var(--t1)}
+.p-attr-val{flex-shrink:0;color:var(--t2);font-weight:600;font-variant-numeric:tabular-nums}
+.p-attr-val.pos{color:var(--green)}
+.p-attr-val.neg{color:var(--red)}
+.p-err-box{
+  padding:8px;background:rgba(242,66,85,.07);
+  border:1px solid rgba(242,66,85,.2);border-radius:var(--r);
+  color:var(--red);font-size:11.5px;
+}
 
 /* diagnostics + spark side by side */
 .p-diag-row{
@@ -1138,7 +1396,10 @@ a:focus-visible,button:focus-visible{
   .hdr-brand-divider{display:none}
 }
 @media (max-width:1100px){
-  .overview-layout{grid-template-columns:minmax(0,1fr)}
+  /* stacked layout: give the workspace back its natural height so the page
+     (not the columns) does the scrolling again */
+  #view-overview.active{display:block;flex:none;min-height:auto}
+  .overview-layout{grid-template-columns:minmax(0,1fr);min-height:0}
   #mapCard{order:1}
   #panel{order:2}
   .overview-sidebar{
@@ -1146,10 +1407,16 @@ a:focus-visible,button:focus-visible{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
     align-items:start;
+    overflow:visible;
+    min-height:0;
   }
+  .sb-sec{align-self:start}
+  .sb-sec[data-sec="watch"] .tbl-wrap{max-height:280px}
   .main-cols{grid-template-columns:minmax(0,1fr)}
   #mapWrap{height:min(72vh,620px)}
   .kpi-row{grid-template-columns:repeat(2,1fr)}
+  #panel{max-height:none}
+  .panel-body{max-height:none}
 }
 @media (max-width:900px){
   :root{--hdr:56px}
@@ -1179,6 +1446,12 @@ a:focus-visible,button:focus-visible{
 }
 @media (max-width:560px){
   .kpi-row{grid-template-columns:minmax(0,1fr)}
+  .p-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .p-meta-cell:nth-child(3n){border-right:1px solid var(--bd)}
+  .p-meta-cell:nth-child(2n){border-right:none}
+  .p-meta-cell:nth-last-child(-n+3){border-bottom:1px solid var(--bd)}
+  .p-meta-cell:nth-last-child(-n+2){border-bottom:none}
+  .tl-spark{max-width:none}
   .map-toolbar{padding:6px 8px}
   .map-ctl select,.fc-select-inline{max-width:150px}
   .card-hdr{flex-wrap:wrap;gap:6px}
@@ -1427,7 +1700,7 @@ a:focus-visible,button:focus-visible{
     <div class="hdr-emblem">
       <img src="data:image/png;base64,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"
            alt="Emblem of India" width="38" height="61"
-           style="object-fit:contain;filter:drop-shadow(0 0 2px rgba(255,176,32,.3))"/>
+           style="object-fit:contain;filter:brightness(0) invert(1) drop-shadow(0 0 2px rgba(255,176,32,.3))"/>
     </div>
     <div class="hdr-gov-text">
       <strong>Ministry of Earth Sciences</strong>
@@ -1461,7 +1734,7 @@ a:focus-visible,button:focus-visible{
 
   <!-- NCMRWF -->
   <div class="hdr-ncmrwf">
-    <div class="hdr-ncmrwf-logo">🌊</div>
+    <div class="hdr-ncmrwf-logo"><img src="/app/assets/ncmrwf-logo.png" alt="NCMRWF logo"></div>
     <div class="hdr-ncmrwf-text">
       <strong>NCMRWF</strong>
       National Centre for Medium Range<br>Weather Forecasting
@@ -1518,47 +1791,85 @@ a:focus-visible,button:focus-visible{
       <!-- Three-column overview: sidebar | map | panel -->
       <div class="overview-layout">
 
-        <!-- Left sidebar: watchlist + model perf + case study -->
-        <div class="overview-sidebar">
+        <!-- Left sidebar: compact, collapsible operations rail -->
+        <div class="overview-sidebar" id="ovSidebar">
 
-          <!-- Watchlist -->
-          <div class="card">
-            <div class="card-hdr">
-              <div class="card-title">Forecast Reliability Watchlist</div>
-              <button class="card-action" onclick="show('regions')">View All</button>
-            </div>
-            <div class="tbl-wrap">
-              <table id="watchTbl"></table>
-            </div>
-          </div>
-
-          <!-- Model perf -->
-          <div class="card">
-            <div class="card-hdr">
-              <div>
-                <div class="card-title">Model Performance <span id="mpCycle" style="font-size:10.5px;color:var(--t2);font-weight:400"></span></div>
+          <!-- 1. Watchlist (open by default; only the rows scroll) -->
+          <section class="card sb-sec" data-sec="watch">
+            <div class="card-hdr sb-hdr">
+              <div class="card-title" id="sb-lbl-watch">Forecast Reliability Watchlist</div>
+              <div class="sb-acts">
+                <button class="card-action" onclick="show('regions')">View All</button>
+                <button type="button" class="sb-toggle"
+                        aria-expanded="true" aria-controls="sb-watch"
+                        aria-labelledby="sb-lbl-watch"></button>
               </div>
-              <button class="card-action" onclick="show('model')">View Details</button>
             </div>
-            <div class="card-body" id="modelMini">
-              <div style="padding:20px;text-align:center;color:var(--t3);font-size:12px">Loading…</div>
+            <div class="sb-panel" id="sb-watch">
+              <div class="tbl-wrap">
+                <table id="watchTbl" aria-labelledby="sb-lbl-watch"></table>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Case study -->
-          <div class="card">
-            <div class="card-hdr">
-              <div class="card-title">Historical Case Study</div>
-              <button class="card-action" onclick="show('case')">View All</button>
+          <!-- 2. Model snapshot (compact 2x2) -->
+          <section class="card sb-sec" data-sec="model">
+            <div class="card-hdr sb-hdr">
+              <div class="card-title" id="sb-lbl-model">Model Snapshot
+                <span id="mpCycle" style="font-size:10px;color:var(--t2);font-weight:400"></span>
+              </div>
+              <div class="sb-acts">
+                <button class="card-action" onclick="show('model')">Details</button>
+                <button type="button" class="sb-toggle"
+                        aria-expanded="true" aria-controls="sb-model"
+                        aria-labelledby="sb-lbl-model"></button>
+              </div>
             </div>
-            <div class="card-body">
-              <div class="cs-img"><canvas id="csThumb" width="200" height="88"></canvas></div>
-              <div class="cs-title" id="csTitle">West Coast and Ghats</div>
-              <div class="cs-date" id="csDate">(12–16 Jun 2024)</div>
-              <div class="cs-desc" id="csDesc">Observed bust event with large underestimation of rainfall. Similar synoptic pattern and high ensemble spread identified in record.</div>
-              <button class="btn-outline" onclick="show('case')">View Case Study</button>
+            <div class="sb-panel" id="sb-model">
+              <div class="card-body" id="modelMini">
+                <div style="padding:14px 0;text-align:center;color:var(--t3);font-size:12px">Loading…</div>
+              </div>
             </div>
-          </div>
+          </section>
+
+          <!-- 3. Uncertainty drivers (collapsed by default) -->
+          <section class="card sb-sec" data-sec="drivers">
+            <div class="card-hdr sb-hdr">
+              <div class="card-title" id="sb-lbl-drivers">Uncertainty Drivers</div>
+              <div class="sb-acts">
+                <button type="button" class="sb-toggle"
+                        aria-expanded="false" aria-controls="sb-drivers"
+                        aria-labelledby="sb-lbl-drivers"></button>
+              </div>
+            </div>
+            <div class="sb-panel" id="sb-drivers" hidden>
+              <div class="model-section-title">Top Uncertain Variables</div>
+              <div class="metric-bars" id="uncVars"></div>
+            </div>
+          </section>
+
+          <!-- 4. Historical case (collapsed: identity + action only) -->
+          <section class="card sb-sec" data-sec="case">
+            <div class="card-hdr sb-hdr">
+              <div class="card-title" id="sb-lbl-case">Historical Case Study</div>
+              <div class="sb-acts">
+                <button type="button" class="sb-toggle"
+                        aria-expanded="false" aria-controls="sb-case-extra"
+                        aria-labelledby="sb-lbl-case"></button>
+              </div>
+            </div>
+            <div class="sb-panel">
+              <div class="sb-case">
+                <div class="cs-title" id="csTitle">West Coast and Ghats</div>
+                <div class="cs-date" id="csDate">(12–16 Jun 2024)</div>
+                <div id="sb-case-extra" hidden data-cs-open>
+                  <div class="cs-img"><canvas id="csThumb" width="200" height="88"></canvas></div>
+                  <div class="cs-desc" id="csDesc">Observed bust event with large underestimation of rainfall. Similar synoptic pattern and high ensemble spread identified in record.</div>
+                </div>
+                <button class="btn-outline" onclick="show('case')">View Case Study</button>
+              </div>
+            </div>
+          </section>
 
         </div>
 
@@ -1613,7 +1924,7 @@ a:focus-visible,button:focus-visible{
           </div>
         </div>
 
-        <!-- Analysis panel -->
+        <!-- Analysis panel: fixed header + fixed subtabs, only the body scrolls -->
         <div class="card" id="panel">
           <div class="panel-hdr">
             <div class="panel-title" id="panelTitle">Select a cell to inspect</div>
@@ -1622,7 +1933,7 @@ a:focus-visible,button:focus-visible{
               Day 3 (72 – 96 h)
             </div>
           </div>
-          <div style="padding:6px 8px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px">
+          <div class="panel-locstrip">
             <div class="panel-location" id="panelLoc">
               <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
                 <circle cx="6" cy="5" r="2.5"/><path d="M6 1v.5M6 9.5V10M1 5h.5M10.5 5H11"/>
@@ -1630,7 +1941,9 @@ a:focus-visible,button:focus-visible{
               <span id="panelLocText">Click a region on the map to inspect</span>
             </div>
           </div>
-          <div class="panel-body" id="panelBody">
+          <div class="panel-tabs" id="panelTabs" role="tablist" aria-label="Analysis detail sections"></div>
+          <div class="panel-body" id="panelBody" role="tabpanel" tabindex="0"
+               aria-labelledby="ptab-overview">
             <div class="empty-state">
               <div class="empty-icon">🗺</div>
               <div class="empty-text">Select a grid cell on the map to inspect its forecast reliability, drivers, and historical analogues.</div>
@@ -1853,6 +2166,8 @@ const S = {
   compare: null, compareLoading: false,
   metrics: null, caseStudy: null, datasets: null,
   sel: null, hover: null, hoverState: -1,
+  /* active subtab of the right-hand analysis panel (Overview default) */
+  panelTab: "overview",
   geo: {capitals: [], cities: [], countries: []}
 };
 const VIEWS = [
@@ -2918,6 +3233,8 @@ function fmtPct(v){
   const n=+v;
   return Math.round(n<=1?n*100:n)+"%";
 }
+/* valid-time window for a lead day, shared by the map meta and the panel */
+const hrsOf=l=>`${l*24} – ${(l+1)*24} h`;
 function fmtLegend(v){
   const u=layerDef(S.layer).units;
   if(u==="0-1"||u==="fraction") return Math.round(v*100)+"%";
@@ -3045,7 +3362,7 @@ function updateMetaText(){
   const key=S.lead+"|"+S.products.meta.forecast_cycle+"|"+S.mode+"|"+S.layer;
   if(_metaKey===key) return;
   _metaKey=key;
-  const hrs=l=>`${l*24} – ${(l+1)*24} h`;
+  const hrs=hrsOf;
   const chg=isChangeMode();
   document.getElementById("mapTitle").textContent=
     chg?"Forecast Change Map":"Forecast Confidence Map";
@@ -3074,11 +3391,27 @@ function cellAt(ev){
   return {i,j,lat:g.lat[i],lon:g.lon[j],k:i*g.lon.length+j};
 }
 
-/* ── tooltip ── */
-function hideTip(){
+/* ── tooltip ─────────────────────────────────────────────────────────────
+   HOVER  = compact preview only (state, capital, the numbers that matter).
+   CLICK  = full detail, which always lives in the right-hand analysis
+   panel. Nothing was moved out of the panel - the hover card simply stops
+   repeating it. Size budget: ~180-240px wide, ~80-130px tall.
+   ──────────────────────────────────────────────────────────────────────── */
+const TIP_MAX_H = 130;          // hover card must not grow past this
+let _tipT = null;               // hover-delay timer (anti-flicker)
+let _tipCell = null;            // cell the pending timer belongs to
+
+function tipEl(){
   const t=document.getElementById("tip");
-  if(t.style.display!=="none") t.style.display="none";
+  return t;
 }
+function hideTip(){
+  if(_tipT){ clearTimeout(_tipT); _tipT=null; }
+  _tipCell=null;
+  tipEl().classList.remove("is-on");
+}
+/* Compact Forecast Change summary. The full comparison (valid time, lead
+   mapping, cycle-by-cycle reasoning) stays in changePanelHTML() below. */
 function changeTipHTML(c){
   const cmp=S.compare;
   if(!cmp) return "";
@@ -3086,49 +3419,31 @@ function changeTipHTML(c){
     if(!isChangeMode()) return "";
     return `<div class="tip-row">
         <span class="tip-k">Forecast Change</span>
-        <span class="tip-v" style="color:var(--red);font-size:11px">Unavailable</span>
-      </div>
-      <div class="tip-hint">${cmp.message||"Comparison unavailable."}</div>`;
+        <span class="tip-v" style="color:var(--red);font-size:10.5px">Unavailable</span>
+      </div>`;
   }
   const d=cellChange(c);
   const st=d?d.status:3;
   const lbl=(cmp.statusLabels&&cmp.statusLabels[String(st)])||"—";
   if(!isChangeMode()){
-    /* secondary indicator beside the selected metric */
+    /* one secondary line beside the selected metric */
     if(!d) return "";
     return `<div class="tip-row">
-        <span class="tip-k">Forecast Change</span>
+        <span class="tip-k">Change</span>
         <span class="tip-v" style="color:${changeStatusColor(st)}">${fmtDelta(cmp,d.delta)}</span>
-      </div>
-      <div class="tip-row">
-        <span class="tip-k">vs ${cmp.previousCycle}</span>
-        <span class="tip-v"><span class="risk-pill ${changePillClass(st)}">${lbl}</span></span>
       </div>`;
   }
-  const dir=!d?"—":(d.delta<0?"▼ Lower":d.delta>0?"▲ Higher":"■ Unchanged");
-  const dirCol=st===1?"var(--green)":st===2?"var(--red)":"var(--t1)";
   return `
-      <div class="tip-row"><span class="tip-k">Previous cycle</span>
-        <span class="tip-v">${cmp.previousCycle} · D${cmp.previousLead}</span></div>
-      <div class="tip-row"><span class="tip-k">Current cycle</span>
-        <span class="tip-v">${cmp.cycle} · D${cmp.lead}</span></div>
-      <div class="tip-row"><span class="tip-k">Valid time</span>
-        <span class="tip-v">${cmp.validTime}</span></div>
-      <div class="tip-row"><span class="tip-k">Lead time</span>
-        <span class="tip-v">Day ${cmp.lead} (vs Day ${cmp.previousLead})</span></div>
-      <div class="tip-row"><span class="tip-k">Previous value</span>
-        <span class="tip-v">${d?fmtVal(cmp,d.prv):"—"}</span></div>
-      <div class="tip-row"><span class="tip-k">Current value</span>
+      <div class="tip-row"><span class="tip-k">Current</span>
         <span class="tip-v">${d?fmtVal(cmp,d.cur):"—"}</span></div>
+      <div class="tip-row"><span class="tip-k">Previous</span>
+        <span class="tip-v">${d?fmtVal(cmp,d.prv):"—"}</span></div>
       <div class="tip-row"><span class="tip-k">Change</span>
         <span class="tip-v" style="color:${changeStatusColor(st)}">${d?fmtDelta(cmp,d.delta):"—"}</span></div>
-      <div class="tip-row"><span class="tip-k">Direction</span>
-        <span class="tip-v" style="color:${dirCol}">${dir}</span></div>
       <div class="tip-row"><span class="tip-k">Status</span>
         <span><span class="risk-pill ${changePillClass(st)}">${lbl}</span></span></div>`;
 }
-function showTip(c,ev){
-  const tip=document.getElementById("tip");
+function tipInnerHTML(c){
   const L=S.products.layers[String(S.lead)];
   const conf=L.confidence[c.k], bp=L.bust_probability[c.k];
   const si=stateOfCell(c);
@@ -3140,41 +3455,133 @@ function showTip(c,ev){
   const bpCol=!hasBp?"var(--t1)":(+bp>0.5?"var(--red)":(+bp>0.25?"var(--amber)":"var(--green)"));
   const confCol=hasConf?bandLabel(+conf).c:"var(--t2)";
   const chg=isChangeMode();
-  tip.innerHTML=`
-    <div class="tip-hd">
-      <div class="tip-title">${stateName||coords}</div>
-      <div class="tip-sub">${stateName?(cap?`Capital: ${cap} · ${coords}`:coords):"Not inside a mapped state"}</div>
-    </div>
-    <div class="tip-body">
+  const title=stateName||coords;
+  const sub=stateName?(cap?`Capital: ${cap}`:coords):"Not inside a mapped state";
+  const metric = chg ? "" : `
       <div class="tip-row">
         <span class="tip-k">Reliability</span>
         <span class="tip-v" style="color:${confCol}">${hasConf?Math.round(conf):"—"}<small> / 100</small></span>
-      </div>
+      </div>`;
+  /* Forecast Change hover = Current / Previous / Change / Status only
+     (spec example). Bust stays a Reliability-mode row and is always in the
+     analysis panel. */
+  const bust = chg ? "" : `
       <div class="tip-row">
         <span class="tip-k">Bust Probability</span>
         <span class="tip-v" style="color:${bpCol}">${hasBp?fmtPct(bp):"No data"}</span>
-      </div>
-      ${chg?"":`<div class="tip-row">
-        <span class="tip-k">Status</span>
-        <span>${hasConf?pillFor(bandOf(conf)):`<span class="risk-pill pill-mod">No data</span>`}</span>
-      </div>`}
-      ${changeTipHTML(c)}
-      <div class="tip-hint">Click to inspect this cell in the analysis panel</div>
+      </div>`;
+  const change=changeTipHTML(c);
+  /* the affordance hint is dropped automatically if it would push the card
+     past TIP_MAX_H - it is guidance, not data. */
+  return `
+    <div class="tip-hd">
+      <div class="tip-title">${title}</div>
+      <div class="tip-sub">${sub}</div>
+    </div>
+    <div class="tip-body">
+      ${metric}${bust}${change}
+      <div class="tip-hint">Click for full detail</div>
     </div>`;
-  tip.style.display="block";
-  /* Anchor to the pin tip (the cell coordinate), not the cursor, so the
-     card sits clear above the pin instead of covering it.               */
-  const wrapEl=document.getElementById("mapWrap"), wrap=wrapEl.getBoundingClientRect();
-  const cell=cellRect(proj(),c);
+}
+function tipBoxOverlap(a,b){
+  const x=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));
+  const y=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+  return x*y;
+}
+/* Viewport-aware placement: stay inside #mapWrap, dodge the zoom buttons,
+   the legend, the scale bar, the selected pin and the cursor's own marker,
+   and keep the card small so it never swallows the map.               */
+function placeTip(tip,c){
+  const wrapEl=document.getElementById("mapWrap");
+  const wr=wrapEl.getBoundingClientRect();
+  const W=wr.width, H=wr.height, M=8;
   const w=tip.offsetWidth, h=tip.offsetHeight;
+  /* small viewport -> anchored bottom sheet, no floating card */
+  if(W<470 || window.innerWidth<=760){
+    tip.classList.add("tip-sheet");
+    tip.style.left=""; tip.style.top="";
+    return;
+  }
+  tip.classList.remove("tip-sheet");
+  if(!w||!h) return;
+  const rect=cellRect(proj(),c), px=rect.cx, py=rect.cy;
   const PIN=26, GAP=12;
-  let x=cell.cx-w/2;
-  let y=cell.cy-PIN-GAP-h;                       // above the pin
-  if(y<8) y=cell.cy+GAP+6;                        // flip below if no headroom
-  x=Math.max(8,Math.min(x,wrap.width-w-8));
-  y=Math.max(8,Math.min(y,wrap.height-h-8));
-  tip.style.left=x+"px";
-  tip.style.top=y+"px";
+  const obst=[];
+  wrapEl.querySelectorAll(".zoom-btns,.map-legend,.scale-bar").forEach(e=>{
+    const r=e.getBoundingClientRect();
+    obst.push({x:r.left-wr.left-4,y:r.top-wr.top-4,w:r.width+8,h:r.height+8});
+  });
+  obst.push({x:px-18,y:py-PIN-10,w:36,h:PIN+16,pin:true});   // the marker itself
+  const cx=W/2, cy=H/2;
+  const nearTop=py<H*0.34, nearBottom=py>H*0.66;
+  const nearLeft=px<W*0.34, nearRight=px>W*0.66;
+  let order;
+  if(nearTop)          order=["br","bl","r","l","tr","tl"];
+  else if(nearBottom)  order=["tr","tl","r","l","br","bl"];
+  else if(nearLeft)    order=["r","br","tr","l","bl","tl"];
+  else if(nearRight)   order=["l","bl","tl","r","br","tr"];
+  else                 order=["r","tr","br","l","tl","bl"];
+  const raw={
+    br:[px+16, py+GAP+6],
+    bl:[px-16-w, py+GAP+6],
+    tr:[px+16, py-PIN-GAP-h],
+    tl:[px-16-w, py-PIN-GAP-h],
+    r:[px+PIN+GAP, py-h/2],
+    l:[px-PIN-GAP-w, py-h/2]
+  };
+  let best=null;
+  order.forEach((tag,idx)=>{
+    let x=raw[tag][0], y=raw[tag][1];
+    x=Math.max(M,Math.min(x,W-w-M));
+    y=Math.max(M,Math.min(y,H-h-M));
+    const box={x,y,w,h};
+    /* Overlapping a map overlay (legend / zoom / scale) is a hard fault:
+       those candidates are ranked behind every clear one. The marker itself
+       is only nudged away from, never fled from. */
+    let hard=0, soft=0;
+    for(const o of obst){
+      const ov=tipBoxOverlap(box,o);
+      if(!ov) continue;
+      if(o.pin) soft += ov/6; else hard += ov;
+    }
+    let sc=hard>0 ? 1e6+hard : idx*12+soft;
+    if(hard===0){
+      sc += 0.35*Math.hypot((x+w/2)-px,(y+h/2)-py);   // stay near the marker
+      sc += 0.15*Math.hypot((x+w/2)-cx,(y+h/2)-cy);   // lean away from the centre
+    }
+    if(!best||sc<best.sc) best={x,y,sc};
+  });
+  tip.style.left=Math.round(best.x)+"px";
+  tip.style.top=Math.round(best.y)+"px";
+}
+function showTip(c){
+  const tip=tipEl();
+  tip.innerHTML=tipInnerHTML(c);
+  const hint=tip.querySelector(".tip-hint");
+  /* measure while still hidden, position, then fade in */
+  if(tip.offsetHeight>TIP_MAX_H && hint) hint.remove();
+  placeTip(tip,c);
+  tip.classList.add("is-on");
+  /* re-place once laid out (removing the hint changes the height) */
+  if(!tip.classList.contains("tip-sheet")) placeTip(tip,c);
+}
+/* Small hover delay so sweeping the cursor across markers never flickers
+   a card open. Leaving the marker hides it straight away. */
+function tipSchedule(c){
+  if(!c){ hideTip(); return; }
+  const prev=_tipCell;
+  const same = prev && prev.i===c.i && prev.j===c.j;
+  if(same){
+    if(tipEl().classList.contains("is-on")) return;   // already showing this cell
+    if(_tipT) return;                                 // already pending for it
+  }
+  if(_tipT){ clearTimeout(_tipT); _tipT=null; }       // different cell: restart
+  _tipCell=c;
+  tipEl().classList.remove("is-on");
+  _tipT=setTimeout(()=>{
+    _tipT=null;
+    if(S.hover&&S.hover.i===c.i&&S.hover.j===c.j) showTip(c);
+  },150);
 }
 
 /* ── hover / selection plumbing ── */
@@ -3189,7 +3596,23 @@ function setHover(c){
 }
 function selectAt(ev){
   const c=cellAt(ev);
-  if(c){ S.sel=c; scheduleDraw(); showDetail(c); }
+  if(c){ hideTip(); S.sel=c; scheduleDraw(); showDetail(c); }   // click = full detail
+}
+/* Cell under the middle of the view, for keyboard selection without a
+   pointer. Same rounding as cellAt(), so it always lands on the grid. */
+function centerCell(){
+  if(!S.products) return null;
+  const g=S.products.grid, p=proj();
+  const lon=p.lon(p.W/2), lat=p.lat(p.H/2);
+  const j=Math.round((lon-g.lon[0])/g.resolution_deg);
+  const i=Math.round((lat-g.lat[0])/g.resolution_deg);
+  if(i<0||j<0||i>=g.lat.length||j>=g.lon.length) return null;
+  return {i,j,lat:g.lat[i],lon:g.lon[j],k:i*g.lon.length+j};
+}
+function selectCell(c){
+  if(!c) return;
+  hideTip();
+  S.sel=c; scheduleDraw(); showDetail(c);
 }
 
 /* ── interaction: pan, zoom, hover, select ── */
@@ -3223,11 +3646,12 @@ cv.addEventListener("pointermove",ev=>{
   }
   const c=cellAt(ev);
   setHover(c);
-  if(c) showTip(c,ev); else hideTip();
+  tipSchedule(c);
 });
 cv.addEventListener("pointerup",endDrag);
 cv.addEventListener("pointercancel",()=>{ _drag=null; cv.classList.remove("is-panning"); });
 cv.addEventListener("pointerleave",()=>{ setHover(null); hideTip(); });
+cv.addEventListener("pointerdown",()=>{ hideTip(); });
 cv.addEventListener("wheel",ev=>{
   if(!S.products||!B.bbox) return;
   ev.preventDefault();
@@ -3247,6 +3671,14 @@ cv.addEventListener("keydown",ev=>{
   else if(k==="ArrowUp"){ panBy(0,0.16); ev.preventDefault(); }
   else if(k==="ArrowDown"){ panBy(0,-0.16); ev.preventDefault(); }
   else if(k==="Home"||k==="0"){ fitMap(); hideTip(); scheduleDraw(); ev.preventDefault(); }
+  /* hover is never the only path to the data: Enter/Space selects the
+     hovered cell, or the cell at the centre of the view when nothing is
+     hovered, and the analysis panel takes over. */
+  else if(k==="Enter"||k===" "||k==="Spacebar"){
+    const c=S.hover||centerCell();
+    if(c) selectCell(c);
+    ev.preventDefault();
+  }
 });
 
 /* ── confidence band ── */
@@ -3262,15 +3694,137 @@ function pillFor(b){
   return `<span class="risk-pill ${map[b]||"pill-vlow"}">${lbl[b]||b}</span>`;
 }
 
-/* ── detail panel ── */
-let _detailTok=0;
-/* Forecast Change block for the analysis panel. Reads the shared comparison
-   cache - no extra request, no second definition of the rule. */
+/* ── detail panel: fixed header + 5 subtabs ────────────────────────────────
+   One fetch per selection builds every section once; switching subtabs only
+   repaints from that cache (no refetch, no duplicate requests). */
+const PANEL_TABS=[
+  {k:"overview",l:"Overview"},
+  {k:"change",  l:"Change"},
+  {k:"drivers", l:"Drivers"},
+  {k:"timeline",l:"Timeline"},
+  {k:"diag",    l:"Diagnostics"}
+];
+const PANEL_TAB_LABEL={};
+PANEL_TABS.forEach(t=>PANEL_TAB_LABEL[t.k]=t.l);
+const PANEL_TAB_ORDER=PANEL_TABS.map(t=>t.k);
+let _detail=null;            // cached section HTML for the current selection
+let _detailTok=0;            // stale-response guard for showDetail()
+
+function validPanelTab(k){return Object.prototype.hasOwnProperty.call(PANEL_TAB_LABEL,k)?k:"overview";}
+function renderPanelTabs(){
+  const host=document.getElementById("panelTabs");
+  if(!host) return;
+  host.innerHTML=PANEL_TABS.map(t=>{
+    const on=t.k===S.panelTab;
+    return `<button type="button" class="p-tab${on?" on":""}" role="tab"
+      id="ptab-${t.k}" data-ptab="${t.k}"
+      aria-controls="panelBody" aria-selected="${on}"
+      tabindex="${on?0:-1}">${t.l}</button>`;
+  }).join("");
+}
+function paintPanelTab(){
+  const el=document.getElementById("panelBody");
+  if(!el) return;
+  el.setAttribute("aria-labelledby","ptab-"+S.panelTab);
+  if(!_detail){ return; }
+  const k=S.panelTab, s=_detail.sections;
+  let html;
+  if(k==="overview") html=s.overview;
+  else if(k==="change") html=s.change;
+  else if(!s.ready) html=`<div class="p-loading"><span class="p-spin"></span>Loading ${PANEL_TAB_LABEL[k].toLowerCase()}…</div>`;
+  else if(k==="drivers") html=s.drivers;
+  else if(k==="timeline") html=s.timeline;
+  else html=s.diag;
+  el.innerHTML=html;
+  el.scrollTop=0;
+}
+function setPanelTab(k){
+  k=validPanelTab(k);
+  if(S.panelTab===k){ renderPanelTabs(); return; }
+  S.panelTab=k;
+  try{localStorage.setItem("fbp.panelTab",k);}catch(e){}
+  renderPanelTabs();
+  paintPanelTab();
+}
+function initPanelTabs(){
+  try{
+    const v=localStorage.getItem("fbp.panelTab");
+    S.panelTab=validPanelTab(v||S.panelTab||"overview");
+  }catch(e){ S.panelTab=validPanelTab(S.panelTab||"overview"); }
+  renderPanelTabs();
+  const host=document.getElementById("panelTabs");
+  if(!host) return;
+  host.addEventListener("click",ev=>{
+    const b=ev.target.closest("[data-ptab]");
+    if(b) setPanelTab(b.dataset.ptab);
+  });
+  /* keyboard: tabs are real <button role=tab> - arrows/home/end move focus */
+  host.addEventListener("keydown",ev=>{
+    const i=PANEL_TAB_ORDER.indexOf(S.panelTab);
+    if(i<0) return;
+    let n=null;
+    if(ev.key==="ArrowLeft") n=(i-1+PANEL_TAB_ORDER.length)%PANEL_TAB_ORDER.length;
+    else if(ev.key==="ArrowRight") n=(i+1)%PANEL_TAB_ORDER.length;
+    else if(ev.key==="Home") n=0;
+    else if(ev.key==="End") n=PANEL_TAB_ORDER.length-1;
+    if(n===null) return;
+    ev.preventDefault();
+    setPanelTab(PANEL_TAB_ORDER[n]);
+    const btn=document.getElementById("ptab-"+PANEL_TAB_ORDER[n]);
+    if(btn) btn.focus();
+  });
+}
+
+const EMPTY_PANEL_HTML=`<div class="empty-state">
+  <div class="empty-icon">🗺</div>
+  <div class="empty-text">Select a grid cell on the map to inspect its forecast reliability, drivers, and historical analogues.</div>
+</div>`;
+
+/* ── left sidebar: collapsible operations rail ──────────────────────────────
+   Only the open/closed flags are remembered; every section keeps working
+   regardless of what is in storage. */
+const SB_DEFAULT_OPEN={watch:true,model:true,drivers:false,case:false};
+let SB_OPEN=Object.assign({},SB_DEFAULT_OPEN);
+function sbApply(){
+  document.querySelectorAll("#ovSidebar .sb-sec").forEach(sec=>{
+    const k=sec.dataset.sec;
+    const btn=sec.querySelector(".sb-toggle");
+    if(!btn) return;
+    const on=!!SB_OPEN[k];
+    sec.classList.toggle("is-open",on);
+    btn.setAttribute("aria-expanded",String(on));
+    const panel=document.getElementById(btn.getAttribute("aria-controls"));
+    if(panel) panel.hidden=!on;
+  });
+}
+function sbToggle(k){
+  if(!(k in SB_OPEN)) return;
+  SB_OPEN[k]=!SB_OPEN[k];
+  try{localStorage.setItem("fbp.sideSecs",JSON.stringify(SB_OPEN));}catch(e){}
+  sbApply();
+}
+function initSidebar(){
+  try{
+    const v=JSON.parse(localStorage.getItem("fbp.sideSecs")||"null");
+    SB_OPEN=Object.assign({},SB_DEFAULT_OPEN,(v&&typeof v==="object")?v:{});
+  }catch(e){ SB_OPEN=Object.assign({},SB_DEFAULT_OPEN); }
+  document.querySelectorAll("#ovSidebar .sb-toggle").forEach(btn=>{
+    const sec=btn.closest(".sb-sec");
+    if(!sec) return;
+    btn.addEventListener("click",()=>sbToggle(sec.dataset.sec));
+  });
+  sbApply();
+}
+
+/* Forecast Change block for the analysis panel (Change subtab). Reads the
+   shared comparison cache - no extra request, no second definition of the
+   rule. Overview information is deliberately not repeated here. */
 function changePanelHTML(c){
   const cmp=S.compare;
-  if(!cmp) return "";
+  if(!cmp) return `<div class="p-chg-empty"><strong>Forecast Change</strong><br>Comparison not loaded yet.</div>`;
   if(!cmp.available){
-    if(!isChangeMode()) return "";
+    if(!isChangeMode()) return `<div class="p-chg-empty"><strong>Forecast Change unavailable</strong><br>
+      Switch the map to Forecast Change, or pick a lead day with a previous cycle.</div>`;
     const leads=(cmp.availableLeads&&cmp.availableLeads.length)
       ? `<br>Comparable leads: ${cmp.availableLeads.map(l=>"Day "+l).join(", ")}.` : "";
     return `<div class="p-chg-empty"><strong>Forecast Change unavailable</strong><br>
@@ -3280,21 +3834,25 @@ function changePanelHTML(c){
   const st=d?d.status:3;
   const lbl=(cmp.statusLabels&&cmp.statusLabels[String(st)])||"—";
   const cls=st===1?"up":st===2?"down":"flat";
+  const dir=cls==="up"?"↑ Improving":cls==="down"?"↓ Degrading":"→ No change";
+  const cell=(k,v,extra)=>`<div class="p-chg-cell"><div class="p-chg-k">${k}</div>
+      <div class="p-chg-v ${extra||""}">${v}</div></div>`;
   return `
   <div class="p-chg">
     <div class="p-chg-hd"><span>Forecast Change</span><span>${cmp.label}</span></div>
     <div class="p-chg-grid">
-      <div class="p-chg-cell"><div class="p-chg-k">Previous (${cmp.previousCycle||"—"})</div>
-        <div class="p-chg-v">${d?fmtVal(cmp,d.prv):"—"}</div></div>
-      <div class="p-chg-cell"><div class="p-chg-k">Current (${cmp.cycle})</div>
-        <div class="p-chg-v">${d?fmtVal(cmp,d.cur):"—"}</div></div>
-      <div class="p-chg-cell"><div class="p-chg-k">Change</div>
-        <div class="p-chg-v delta ${cls}">${d?fmtDelta(cmp,d.delta):"—"}</div></div>
-      <div class="p-chg-cell"><div class="p-chg-k">Status</div>
-        <div class="p-chg-v"><span class="risk-pill ${changePillClass(st)}">${lbl}</span></div></div>
+      ${cell("Previous",d?fmtVal(cmp,d.prv):"—")}
+      ${cell("Current",d?fmtVal(cmp,d.cur):"—")}
+      ${cell("Change",d?fmtDelta(cmp,d.delta):"—","delta "+cls)}
+      ${cell("Status",`<span class="risk-pill ${changePillClass(st)}">${lbl}</span>`)}
+      ${cell("Previous cycle",cmp.previousCycle||"—")}
+      ${cell("Current cycle",cmp.cycle||"—")}
+      ${cell("Valid time",cmp.validTime||"—")}
+      ${cell("Direction",dir,"delta "+cls)}
     </div>
-    <div class="p-chg-ctx">Day ${cmp.lead} of ${cmp.cycle} vs Day ${cmp.previousLead} of
-      ${cmp.previousCycle} · same valid time ${cmp.validTime} · ±${fmtThreshold(cmp)} = No Change</div>
+    <div class="p-chg-ctx">Lead mapping: Day ${cmp.lead} of ${cmp.cycle} ↔
+      Day ${cmp.previousLead} of ${cmp.previousCycle} · threshold
+      ±${fmtThreshold(cmp)} = No Change</div>
   </div>`;
 }
 async function fetchStability(c){
@@ -3400,9 +3958,170 @@ function stabilityHTML(s){
     </div>
   </div>`;
 }
+/* ── subtab section builders ────────────────────────────────────────────────
+   All of them read the same already-fetched payload; none of them request. */
+function overviewHTML(o){
+  return `
+    <div class="panel-tiles">
+      <div class="p-tile">
+        <div class="p-tile-icon">🌧</div>
+        <div class="p-tile-label">Forecasted Rainfall (24h)</div>
+        <div class="p-tile-value rain">${(+o.rainVal).toFixed(0)} <span style="font-size:14px;font-weight:500">mm</span></div>
+        ${o.rainHeavy?`<div class="p-tile-sub rain">(Very Heavy Rainfall)</div>`:`<div class="p-tile-sub" style="color:var(--t2)">24h accumulation</div>`}
+      </div>
+      <div class="p-tile">
+        <div class="p-tile-icon">🛡</div>
+        <div class="p-tile-label">Forecast Confidence</div>
+        <div class="p-tile-value ${o.confColor}">${o.conf}<span style="font-size:14px;font-weight:500">/100</span></div>
+        <div class="p-tile-sub ${o.band==="low"||o.band==="very_low"?"low":""}">${pillFor(o.band)}</div>
+      </div>
+    </div>
+    <div class="p-meta">
+      <div class="p-meta-cell"><div class="p-meta-key">Location</div><div class="p-meta-val">${o.coords}</div></div>
+      <div class="p-meta-cell"><div class="p-meta-key">Forecast cycle</div><div class="p-meta-val">${o.cycle} 00 UTC</div></div>
+      <div class="p-meta-cell"><div class="p-meta-key">Lead time</div><div class="p-meta-val">Day ${S.lead}</div></div>
+      <div class="p-meta-cell"><div class="p-meta-key">Valid window</div><div class="p-meta-val">${hrsOf(S.lead)}</div></div>
+      <div class="p-meta-cell"><div class="p-meta-key">Bust probability</div><div class="p-meta-val" style="font-weight:700;color:${o.bp>0.5?"var(--red)":o.bp>0.25?"var(--amber)":"var(--t1)"}">${fmtPct(o.bp)}</div></div>
+      <div class="p-meta-cell"><div class="p-meta-key">Status</div><div class="p-meta-val">${pillFor(o.band)}</div></div>
+    </div>`;
+}
+
+const _strengthColor=s=>s>0.6?"var(--red)":s>0.35?"var(--amber)":"var(--t2)";
+const _pctlBadge=p=>{
+  if(p==null) return "";
+  const high=p>=90, low=p<=10;
+  const bg=high?"rgba(242,66,85,.12)":low?"rgba(255,138,0,.12)":"rgba(255,214,170,.07)";
+  const col=high?"var(--red)":low?"var(--cyan)":"var(--t2)";
+  return `<span style="background:${bg};color:${col};border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap">${p}th pct</span>`;
+};
+
+/* Drivers subtab: dominant variable, regime, attribution reasons (collapsible)
+   and the regime note. The explanations themselves are never dropped. */
+function driversHTML(pt){
+  const det=pt.explanation_detail||{};
+  const domVar=(pt.dominant_variable||"").replace(/_/g," ");
+  const regime=(pt.regime||"").replace(/_/g," ");
+  const reasons=det.reasons||[];
+  const summary=det.summary||"";
+  const note=det.regime_note||"";
+  const chips=`<div class="drv-chips">
+      <div class="drv-chip">Dominant variable: <strong>${domVar||"—"}</strong></div>
+      <div class="drv-chip amber">Regime: <strong>${regime||"—"}</strong></div>
+    </div>`;
+  let rows;
+  if(reasons.length){
+    rows=`<div class="drv-list">${reasons.map((r,i)=>{
+      const val=r.value!=null?`${r.value}${r.units?" "+r.units:""}`:"—";
+      return `<details class="drv"${i<6?" open":""}>
+        <summary>
+          <span class="drv-n">${i+1}</span>
+          <span class="drv-t">${r.text||r.feature||"—"}</span>
+          <span class="drv-p">${_pctlBadge(r.percentile)}</span>
+        </summary>
+        <div class="drv-b">
+          <span><b>Feature</b> <code>${r.feature||"—"}</code></span>
+          <span><b>Value</b> ${val}</span>
+          <span><b>Percentile</b> ${r.percentile==null?"—":r.percentile}</span>
+          <span><b>Strength</b> <span style="color:${_strengthColor(r.strength||0)}">${r.strength!=null?r.strength:"—"}</span></span>
+        </div>
+      </details>`;}).join("")}</div>`;
+  }else{
+    rows=(pt.explanations||[]).map(r=>`<div class="drv-fallback">${r}</div>`).join("")
+      || `<div style="color:var(--t3);font-size:11.5px;padding:6px 0">No explanation data available.</div>`;
+  }
+  return `
+    <div class="p-block">
+      <div class="p-sec-hd">What is driving this confidence level?</div>
+      ${chips}
+      ${summary?`<div class="drv-sum">${summary}</div>`:""}
+      ${rows}
+      ${note?`<div class="drv-note" style="margin-top:9px">${note}</div>`:""}
+    </div>`;
+}
+
+/* Timeline subtab: everything temporal in one place. */
+function timelineHTML(c,stab){
+  const leads=S.products.meta.lead_days;
+  const confSeries=leads.map(l=>S.products.layers[String(l)].confidence[c.k]);
+  const csLo=Math.max(0,Math.min(...confSeries)-10);
+  const csHi=Math.min(100,Math.max(...confSeries)+10);
+  return `
+    <div class="p-block">
+      <div class="p-sec-hd">Confidence by lead time</div>
+      <div class="tl-spark">${sparkSVG(leads,confSeries,csLo,csHi)}</div>
+    </div>
+    <div class="p-block">
+      <div class="p-sec-hd">Forecast stability</div>
+      ${stabilityHTML(stab)}
+    </div>`;
+}
+
+/* Diagnostics subtab: the expert-mode view - predicted error, per-variable
+   bust rates, diagnostic/ensemble variables and model attribution. */
+function diagHTML(pt){
+  const pe=pt.predicted_error||{}, vbp=pt.variable_bust_probability||{};
+  const en=pt.ensemble||{}, vo=pt.volatility||{}, an=pt.analogue||{}, fc=pt.forecast||{};
+  const det=pt.explanation_detail||{};
+  const pos=det.top_positive_contributors||[], neg=det.top_negative_contributors||[];
+  const kv=(k,v)=>`<div class="p-diag-item"><dt>${k}</dt><dd>${v}</dd></div>`;
+  const num=(v,unit)=>(v===null||v===undefined)?"—":`${v}${unit?" "+unit:""}`;
+  const attr=(a,sign)=>`<div class="p-attr-row">
+      <span class="p-attr-blk">${a.block||"—"}</span>
+      <span class="p-attr-lbl">${a.label||a.block||"—"}</span>
+      <span class="p-attr-val ${sign>0?"pos":"neg"}">${sign>0?"+":""}${a.contribution}</span>
+    </div>`;
+  return `
+    <div class="p-block">
+      <div class="p-sec-hd">Predicted error (ensemble mean)</div>
+      <dl class="p-err-grid">
+        <dt>Rainfall</dt><dd>${num(pe.precipitation,"mm/day")}</dd>
+        <dt>Temperature</dt><dd>${num(pe.temperature,"K")}</dd>
+        <dt>Wind</dt><dd>${num(pe.wind,"m/s")}</dd>
+        <dt>Pressure</dt><dd>${num(pe.pressure,"hPa")}</dd>
+      </dl>
+    </div>
+    <div class="p-block">
+      <div class="p-sec-hd">Bust probability by variable</div>
+      <dl class="p-err-grid">
+        <dt>Rainfall</dt><dd>${fmtPct(vbp.precipitation)}</dd>
+        <dt>Temperature</dt><dd>${fmtPct(vbp.temperature)}</dd>
+        <dt>Wind</dt><dd>${fmtPct(vbp.wind)}</dd>
+        <dt>Pressure</dt><dd>${fmtPct(vbp.pressure)}</dd>
+      </dl>
+    </div>
+    <div class="p-block">
+      <div class="p-sec-hd">Diagnostic variables</div>
+      <div class="p-diag">
+        ${kv("Regime",pt.regime||"—")}
+        ${kv("Ensemble rainfall spread",num(en.precip_spread_mm_day,"mm/day"))}
+        ${kv("Ensemble rainfall IQR",num(en.precip_iqr_mm_day,"mm/day"))}
+        ${kv("Ensemble spread percentile",num(en.spread_percentile))}
+        ${kv("Wind spread",num(en.wind_spread_ms,"m/s"))}
+        ${kv("Forecast volatility index",num(vo.index))}
+        ${kv("Precipitation revision",num(vo.precip_revision_mm_day,"mm/day"))}
+        ${kv("Analogue bust rate",(an.historical_bust_rate==null)?"—":(100*an.historical_bust_rate).toFixed(0)+"%")}
+        ${kv("Analogue similarity",num(an.similarity))}
+        ${kv("Analogues used",num(an.n_analogues))}
+        ${kv("Forecast rainfall",num(fc.precipitation_mm_day,"mm/day"))}
+        ${kv("Forecast temperature",num(fc.t2m_k,"K"))}
+        ${kv("Forecast mean sea-level pressure",num(fc.mslp_hpa,"hPa"))}
+        ${kv("Forecast wind",num(fc.wind_ms,"m/s"))}
+        ${kv("Forecast CAPE",num(fc.cape_j_kg,"J/kg"))}
+        ${kv("Forecast total column water",num(fc.tcwv_kg_m2,"kg/m2"))}
+      </div>
+    </div>
+    ${(pos.length||neg.length)?`
+    <div class="p-block">
+      <div class="p-sec-hd">Model attribution (feature groups)</div>
+      <div class="p-attr">
+        ${pos.map(a=>attr(a,1)).join("")}
+        ${neg.map(a=>attr(a,-1)).join("")}
+      </div>
+    </div>`:""}`;
+}
+
 async function showDetail(c){
   const tok=++_detailTok;
-  const el=document.getElementById("panelBody");
   const L=S.products.layers[String(S.lead)];
   const conf=L.confidence[c.k], bp=L.bust_probability[c.k];
   const b=bandOf(conf);
@@ -3422,40 +4141,20 @@ async function showDetail(c){
   else if(conf>=60) titleEl.textContent="Moderate confidence — some risk factors present";
   else titleEl.textContent="Why is confidence low here?";
 
-  // big metric tiles
   const rainVal=L.fc_precip[c.k];
   const confColor={high:"conf-high",moderate:"conf-high",low:"conf-low",very_low:"conf-vlow"}[b]||"conf-low";
-  const rainHeavy=rainVal>35;
 
-  const tilesHTML=`
-    <div class="panel-tiles">
-      <div class="p-tile">
-        <div class="p-tile-icon">🌧</div>
-        <div class="p-tile-label">Forecasted Rainfall (24h)</div>
-        <div class="p-tile-value rain">${(+rainVal).toFixed(0)} <span style="font-size:14px;font-weight:500">mm</span></div>
-        ${rainHeavy?`<div class="p-tile-sub rain">(Very Heavy Rainfall)</div>`:`<div class="p-tile-sub" style="color:var(--t2)">24h accumulation</div>`}
-      </div>
-      <div class="p-tile">
-        <div class="p-tile-icon">🛡</div>
-        <div class="p-tile-label">Forecast Confidence</div>
-        <div class="p-tile-value ${confColor}">${conf}<span style="font-size:14px;font-weight:500">/100</span></div>
-        <div class="p-tile-sub ${b==="low"||b==="very_low"?"low":""}">${pillFor(b)}</div>
-      </div>
-    </div>`;
-
-  const metaHTML=`
-    <div class="p-meta">
-      <div class="p-meta-cell"><div class="p-meta-key">Location</div><div class="p-meta-val">${c.lat.toFixed(1)}°N, ${c.lon.toFixed(1)}°E</div></div>
-      <div class="p-meta-cell"><div class="p-meta-key">Forecast cycle</div><div class="p-meta-val">${S.products.meta.forecast_cycle.slice(0,10)} 00 UTC</div></div>
-      <div class="p-meta-cell"><div class="p-meta-key">Lead time</div><div class="p-meta-val">Day ${S.lead}</div></div>
-      <div class="p-meta-cell"><div class="p-meta-key"></div><div class="p-meta-val"></div></div>
-      <div class="p-meta-cell"><div class="p-meta-key">Bust probability</div><div class="p-meta-val" style="font-weight:700;color:${bp>0.5?"var(--red)":bp>0.25?"var(--amber)":"var(--t1)"}">${fmtPct(bp)}</div></div>
-      <div class="p-meta-cell"><div class="p-meta-key">Confidence</div><div class="p-meta-val">${conf}/100</div></div>
-      <div class="p-meta-cell"><div class="p-meta-key">Status</div><div class="p-meta-val">${pillFor(bandOf(conf))}</div></div>
-    </div>`;
-
-  const changeHTML=changePanelHTML(c);
-  el.innerHTML=tilesHTML+metaHTML+changeHTML+`<div style="text-align:center;padding:10px;color:var(--t3);font-size:11px">Loading explanation…</div>`;
+  /* sync sections paint immediately; the analytical ones follow the fetch */
+  _detail={
+    sections:{
+      ready:false,
+      overview:overviewHTML({rainVal,rainHeavy:rainVal>35,conf,confColor,band:b,coords,
+        cycle:S.products.meta.forecast_cycle.slice(0,10),bp}),
+      change:changePanelHTML(c),
+      drivers:"",timeline:"",diag:""
+    }
+  };
+  paintPanelTab();
 
   try{
     const cycle=S.products.meta.forecast_cycle.slice(0,10);
@@ -3465,85 +4164,21 @@ async function showDetail(c){
       fetchStability(c),
     ]);
     if(tok!==_detailTok) return;      // a newer selection/lead already rendered
-    const errHTML=`
-      <div class="p-section-title">Predicted error (ensemble mean)</div>
-      <dl class="p-err-grid">
-        <dt>Rainfall</dt><dd>${pt.predicted_error.precipitation} mm/day</dd>
-        <dt>Temperature</dt><dd>${pt.predicted_error.temperature} K</dd>
-        <dt>Wind</dt><dd>${pt.predicted_error.wind} m/s</dd>
-        <dt>Pressure</dt><dd>${pt.predicted_error.pressure} hPa</dd>
-      </dl>`;
-
-    // dominant variable + regime header strip
-    const domVar=(pt.dominant_variable||"").replace(/_/g," ");
-    const regime=(pt.regime||"").replace(/_/g," ");
-    const domHTML=`
-      <div style="display:flex;gap:8px;align-items:center;padding:8px 0 2px">
-        <div style="background:rgba(255,138,0,.1);border:1px solid rgba(255,138,0,.2);border-radius:4px;padding:3px 9px;font-size:11px;color:var(--cyan)">
-          Dominant variable: <strong style="text-transform:capitalize">${domVar||"—"}</strong>
-        </div>
-        <div style="background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.2);border-radius:4px;padding:3px 9px;font-size:11px;color:var(--amber)">
-          Regime: <strong style="text-transform:capitalize">${regime||"—"}</strong>
-        </div>
-      </div>`;
-
-    // rich reasons from explanation_detail
-    const reasons=(pt.explanation_detail&&pt.explanation_detail.reasons)||[];
-    const strengthColor=s=>s>0.6?"var(--red)":s>0.35?"var(--amber)":"var(--t2)";
-    const pctlBadge=p=>{
-      if(p==null) return "";
-      const high=p>=90, low=p<=10;
-      const bg=high?"rgba(242,66,85,.12)":low?"rgba(255,138,0,.12)":"rgba(255,214,170,.07)";
-      const col=high?"var(--red)":low?"var(--cyan)":"var(--t2)";
-      return `<span style="background:${bg};color:${col};border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap">${p}th pct</span>`;
-    };
-    const reasonsRows=reasons.length
-      ? reasons.map(r=>`
-          <div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--bd)">
-            <div style="width:3px;min-width:3px;height:100%;background:${strengthColor(r.strength||0)};border-radius:2px;margin-top:3px;min-height:14px"></div>
-            <div style="flex:1;font-size:12px;line-height:1.5;color:var(--t1)">${r.text||r.feature||"—"}
-              <span style="color:var(--t3);font-size:11px;margin-left:4px">${r.value!=null?`(${r.value}${r.units?' '+r.units:''})`:""}</span>
-            </div>
-            <div>${pctlBadge(r.percentile)}</div>
-          </div>`).join("")
-      : pt.explanations.map(r=>`
-          <div style="padding:7px 0;border-bottom:1px solid var(--bd);font-size:12px;color:var(--t1);line-height:1.5">${r}</div>`).join("");
-
-    const explHTML=`
-      <div class="p-section-title">What is driving this confidence level?</div>
-      ${domHTML}
-      <div style="margin-top:6px">${reasonsRows||'<div style="color:var(--t3);font-size:11.5px;padding:6px 0">No explanation data available.</div>'}</div>`;
-    const leads=S.products.meta.lead_days;
-    const confSeries=leads.map(l=>S.products.layers[String(l)].confidence[c.k]);
-    const csLo=Math.max(0,Math.min(...confSeries)-10);
-    const csHi=Math.min(100,Math.max(...confSeries)+10);
-    const diagHTML=`
-      <div class="p-diag-row">
-        <div>
-          <div class="p-diag-title">Diagnostics</div>
-          <div class="p-diag">
-            <div class="p-diag-item"><dt>Regime</dt><dd>${pt.regime}</dd></div>
-            <div class="p-diag-item"><dt>Ensemble rainfall spread</dt><dd>${pt.ensemble.precip_spread_mm_day} mm/day</dd></div>
-            <div class="p-diag-item"><dt>Forecast volatility index</dt><dd>${pt.volatility.index}</dd></div>
-            <div class="p-diag-item"><dt>Analogue bust rate</dt><dd>${(100*pt.analogue.historical_bust_rate).toFixed(0)}%</dd></div>
-            <div class="p-diag-item"><dt>Forecast rainfall</dt><dd>${pt.forecast.precipitation_mm_day} mm/day</dd></div>
-          </div>
-        </div>
-        <div>
-          <div class="p-diag-title">Confidence by lead time</div>
-          ${sparkSVG(leads,confSeries,csLo,csHi)}
-        </div>
-      </div>`;
-    el.innerHTML=tilesHTML+metaHTML+changeHTML+errHTML+explHTML+diagHTML+stabilityHTML(stab);
+    _detail.sections.drivers=driversHTML(pt);
+    _detail.sections.timeline=timelineHTML(c,stab);
+    _detail.sections.diag=diagHTML(pt);
+    _detail.sections.ready=true;
+    paintPanelTab();
   }catch(e){
     if(tok!==_detailTok) return;
-    el.innerHTML=tilesHTML+metaHTML+changeHTML+
-      `<div style="padding:8px;background:rgba(242,66,85,.07);border:1px solid rgba(242,66,85,.2);border-radius:var(--r);color:var(--red);font-size:11.5px;margin-top:8px">
-        Detail unavailable: ${e.message}
-      </div>`;
+    const box=`<div class="p-err-box">Detail unavailable: ${e.message}</div>`;
+    _detail.sections.drivers=box;
+    _detail.sections.timeline=box;
+    _detail.sections.diag=box;
+    _detail.sections.ready=true;
+    paintPanelTab();
   }
 }
-
 function sparkSVG(xs,ys,lo,hi){
   const W=148,H=80,pL=22,pB=18;
   const gid="sg_"+Math.random().toString(36).slice(2,7);
@@ -3652,16 +4287,22 @@ function renderWatchlist(){
     }).join("")}</tbody>`;
 }
 
-/* ── model mini ── */
+/* ── model mini (Model Snapshot) + uncertain variables (separate section) ── */
 function renderModelMini(M){
-  if(!M){document.getElementById("modelMini").innerHTML=`<p style="color:var(--t3);font-size:11px;padding:8px">Loading metrics…</p>`;return;}
+  const mini=document.getElementById("modelMini");
+  const unc=document.getElementById("uncVars");
+  if(!M){
+    mini.innerHTML=`<p style="color:var(--t3);font-size:11px;padding:4px 0">Loading metrics…</p>`;
+    if(unc) unc.innerHTML="";
+    return;
+  }
   const L=M.classifiers.ladder;
   const best=L.gradient_boosting||L.random_forest;
   const imp=(M.feature_importance||[]).slice(0,3);
   const impMax=imp.length?imp[0].importance:1;
   const cyc=S.products?.meta.forecast_cycle?.slice(0,10)||"";
   document.getElementById("mpCycle").textContent=cyc?`(${cyc})`:"";
-  document.getElementById("modelMini").innerHTML=`
+  mini.innerHTML=`
     <div class="metric-grid">
       <div class="metric-block">
         <div class="metric-val">${best.pr_auc??'—'}</div>
@@ -3679,16 +4320,13 @@ function renderModelMini(M){
         <div class="metric-val">${best.calibration?.expected_calibration_error??'—'}</div>
         <div class="metric-lbl">Reliability</div>
       </div>
-    </div>
-    <div class="model-section-title">Top Uncertain Variables</div>
-    <div class="metric-bars">
-      ${imp.map((f,i)=>`<div class="mb-row">
-        <div style="color:var(--t2);width:10px;font-size:11px;font-weight:600;flex-shrink:0">${i+1}</div>
-        <div class="mb-label">${f.feature.replace(/_/g," ").replace(/^.+\s/,"")}</div>
-        <div class="mb-track"><div class="mb-fill" style="width:${Math.max(3,100*f.importance/impMax)}%"></div></div>
-        <div class="mb-val">${f.importance.toFixed(2)}</div>
-      </div>`).join("")}
     </div>`;
+  if(unc) unc.innerHTML=imp.map((f,i)=>`<div class="mb-row">
+      <div style="color:var(--t2);width:10px;font-size:11px;font-weight:600;flex-shrink:0">${i+1}</div>
+      <div class="mb-label">${f.feature.replace(/_/g," ").replace(/^.+\s/,"")}</div>
+      <div class="mb-track"><div class="mb-fill" style="width:${Math.max(3,100*f.importance/impMax)}%"></div></div>
+      <div class="mb-val">${f.importance.toFixed(2)}</div>
+    </div>`).join("");
 }
 
 /* ── case study thumbnail ── */
@@ -4117,6 +4755,7 @@ async function boot(){
 
     document.getElementById("boot").remove();
 
+    initPanelTabs(); initSidebar();
     renderKPIs();renderWatchlist();renderRegions();
     refreshDerived();drawCsThumb();
 
