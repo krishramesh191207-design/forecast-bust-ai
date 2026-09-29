@@ -420,6 +420,7 @@ body{
 }
 .lead-bar::-webkit-scrollbar{display:none}
 .lead-btn{
+  position:relative;
   background:var(--bg4);
   border:1px solid var(--bd);
   color:var(--t2);
@@ -432,6 +433,15 @@ body{
 .lead-btn:hover{color:var(--t1);border-color:var(--cyan2)}
 .lead-btn.on{background:var(--accent);color:#120A02;border-color:var(--accent);font-weight:700;
   box-shadow:0 2px 10px rgba(var(--accent-rgb),.30)}
+/* Forecast Change: green dot = this lead has a previous cycle at the same
+   valid time; dimmed = the comparison cannot be made for this lead. */
+.lead-btn:not(.on).cmp-ok::after{
+  content:"";position:absolute;top:2px;right:2px;
+  width:4px;height:4px;border-radius:50%;background:var(--green);
+}
+.lead-btn.cmp-no:not(.on){opacity:.5}
+.lead-btn:disabled{cursor:not-allowed}
+.lead-btn:disabled:not(.on):hover{color:var(--t2);border-color:var(--bd)}
 .map-ctl{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
 select,input[type=range]{transition:border-color 130ms ease,box-shadow 130ms ease}
 select:hover{border-color:var(--bd-acc)}
@@ -454,6 +464,39 @@ select option{background:var(--bg3);color:var(--t1)}
   accent-color:var(--cyan);
 }
 .map-r{margin-left:auto;display:flex;align-items:center;gap:6px}
+/* map view mode: absolute layer vs cycle-to-cycle change */
+.seg{
+  display:flex;gap:2px;flex-shrink:0;
+  background:var(--bg4);
+  border:1px solid var(--bd);
+  border-radius:var(--r);
+  padding:2px;
+}
+.seg-btn{
+  background:transparent;border:1px solid transparent;
+  color:var(--t2);font:inherit;font-size:11px;font-weight:600;
+  padding:4px 9px;border-radius:calc(var(--r) - 2px);
+  cursor:pointer;white-space:nowrap;
+  transition:background 120ms ease,color 120ms ease,border-color 120ms ease;
+}
+.seg-btn:hover{color:var(--t1);background:rgba(255,138,0,.12);border-color:rgba(255,138,0,.24)}
+.seg-btn.on{background:var(--accent);color:#120A02;border-color:var(--accent)}
+/* forecast-change context strip under the toolbar */
+.change-note{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:6px 10px;
+  font-size:10.5px;line-height:1.5;color:var(--t2);
+  background:rgba(255,138,0,.07);
+  border-bottom:1px solid var(--bd);
+}
+.change-note[hidden]{display:none}
+.change-note.is-loading{background:rgba(255,176,32,.07);color:var(--amber)}
+.change-note.is-warn{background:rgba(242,66,85,.08);color:var(--red)}
+.change-note b{color:var(--t1);font-weight:600}
+.change-note .cn-chip{
+  background:var(--bg4);border:1px solid var(--bd-acc);
+  border-radius:3px;padding:1px 6px;color:var(--t1);font-weight:600;
+}
 .dl-btn{
   display:flex;align-items:center;gap:4px;
   background:var(--bg4);border:1px solid var(--bd);
@@ -535,6 +578,10 @@ canvas#map.is-panning{cursor:grabbing}
   display:flex;justify-content:space-between;
   font-size:9.5px;color:var(--t3);
   margin-top:1px;
+}
+.leg-neutral{
+  font-size:9.5px;color:var(--t3);
+  text-align:center;margin-top:1px;
 }
 .leg-note{
   font-size:9px;color:var(--t3);
@@ -685,6 +732,63 @@ canvas#map.is-panning{cursor:grabbing}
 .p-meta-cell:nth-last-child(-n+4){border-bottom:none}
 .p-meta-key{font-size:9.5px;color:var(--t2);margin-bottom:2px}
 .p-meta-val{font-size:11.5px;color:var(--t1);font-weight:500}
+
+/* forecast change block (analysis panel) */
+.p-chg{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.p-chg-hd{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:5px 9px;background:rgba(255,138,0,.08);
+  border-bottom:1px solid var(--bd);
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--accent);
+}
+.p-chg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bd)}
+.p-chg-cell{background:var(--bg2);padding:6px 9px;min-width:0}
+.p-chg-k{font-size:9.5px;color:var(--t2);margin-bottom:2px}
+.p-chg-v{font-size:12px;color:var(--t1);font-weight:600;overflow-wrap:anywhere}
+.p-chg-v.delta.up{color:var(--green)}
+.p-chg-v.delta.down{color:var(--red)}
+.p-chg-v.delta.flat{color:var(--t2)}
+.p-chg-ctx{padding:5px 9px;font-size:10px;color:var(--t2);border-top:1px solid var(--bd);background:var(--bg2)}
+.p-chg-note{padding:7px 9px;font-size:10.5px;color:var(--t2);line-height:1.55}
+.p-chg-empty{
+  border:1px dashed var(--bd);border-radius:var(--r);
+  padding:7px 9px;margin-bottom:10px;
+  font-size:10.5px;color:var(--t2);line-height:1.55;
+}
+
+/* stability + confidence trajectory (analysis panel) */
+.stab{border:1px solid var(--bd);border-radius:var(--r);margin-top:8px;overflow:hidden}
+.stab-hd{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:6px 9px;background:rgba(255,138,0,.08);border-bottom:1px solid var(--bd);
+}
+.stab-pill{
+  padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;
+}
+.stab-pill.improving{background:rgba(55,185,125,.14);color:#37B97D;border:1px solid rgba(55,185,125,.3)}
+.stab-pill.stable{background:rgba(228,195,55,.12);color:#E4C33A;border:1px solid rgba(228,195,55,.28)}
+.stab-pill.deteriorating{background:rgba(210,50,55,.14);color:#D23237;border:1px solid rgba(210,50,55,.32)}
+.stab-pill.insufficient_data{background:rgba(255,138,0,.10);color:var(--t2);border:1px solid var(--bd-acc)}
+.stab-score{font-size:16px;font-weight:700;color:var(--t1);white-space:nowrap}
+.stab-score small{font-size:10px;font-weight:500;color:var(--t2)}
+.stab-body{padding:8px 9px}
+.stab-sub{font-size:10.5px;color:var(--t2);margin-bottom:6px}
+.stab-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--bd);margin-top:7px}
+.stab-m{background:var(--bg2);padding:5px 7px;min-width:0}
+.stab-m-k{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
+.stab-m-v{font-size:12px;font-weight:700;color:var(--t1);margin-top:1px}
+.stab-m-v.neg{color:var(--red)}
+.stab-m-v.pos{color:var(--green)}
+.stab-note{font-size:10px;color:var(--t3);line-height:1.55;margin-top:7px}
+.stab-warn{
+  font-size:10.5px;color:var(--amber);background:rgba(255,176,32,.08);
+  border:1px solid rgba(255,176,32,.22);border-radius:var(--r);
+  padding:6px 8px;margin-top:7px;line-height:1.5;
+}
+.stab-error{font-size:10.5px;color:var(--t3);padding:7px 0}
+
 
 /* bust + confidence inline row */
 .p-bc-row{
@@ -1069,19 +1173,249 @@ a:focus-visible,button:focus-visible{
   .scale-bar{display:none}
   .map-r .dl-btn{display:none}
   .map-valid{font-size:9.5px}
+  .seg-btn{padding:3px 6px;font-size:10px}
+  .p-chg-grid{grid-template-columns:repeat(2,1fr)}
+  .stab-metrics{grid-template-columns:1fr}
 }
 @media (max-width:560px){
   .kpi-row{grid-template-columns:minmax(0,1fr)}
   .map-toolbar{padding:6px 8px}
   .map-ctl select,.fc-select-inline{max-width:150px}
+  .card-hdr{flex-wrap:wrap;gap:6px}
+  .seg{width:100%;justify-content:space-between}
+  .seg-btn{flex:1;padding:4px 5px}
   .hdr-center{justify-content:flex-start;padding:0 8px}
   .hdr-brand-name{font-size:19px;letter-spacing:-.5px}
   .hdr-gov{padding-right:8px}
   #mapWrap{height:min(58vh,440px)}
   .zoom-btns{left:8px;top:8px}
   .map-legend{padding:6px 8px;min-width:112px}
-  .leg-ends,.leg-ticks span{font-size:9px}
+  .leg-ends,.leg-neutral,.leg-ticks span{font-size:9px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FORECAST INTELLIGENCE / OPERATIONS CENTER panes
+═══════════════════════════════════════════════════════════════════════ */
+.fb-pane{display:flex;flex-direction:column;gap:10px}
+.fb-pane-h{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;
+  padding:10px 14px;border-radius:var(--r);
+  background:var(--bg2);border:1px solid var(--bd);
+}
+.fb-pane-t{
+  font-size:13px;font-weight:700;color:var(--t1);
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.fb-tabs{display:flex;gap:4px;flex-wrap:wrap;min-width:0}
+.fb-tab{
+  padding:5px 12px;border-radius:var(--r);border:1px solid transparent;
+  background:transparent;color:var(--t2);font:inherit;font-size:12px;
+  font-weight:500;cursor:pointer;white-space:nowrap;
+  transition:all 130ms ease;
+}
+.fb-tab:hover{color:var(--t1);background:var(--accent-dim);border-color:var(--bd-acc)}
+.fb-tab.active{
+  color:#120A02;font-weight:700;
+  background:linear-gradient(180deg,#FFB03A,var(--accent));
+  border-color:var(--accent);
+  box-shadow:0 3px 14px rgba(var(--accent-rgb),.40);
+}
+.fb-pane-b{display:flex;flex-direction:column;gap:10px}
+
+.fb-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fb-card{
+  background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);
+  overflow:hidden;display:flex;flex-direction:column;min-width:0;
+}
+.fb-card-h{
+  padding:9px 12px;font-size:12px;font-weight:700;color:var(--t1);
+  background:var(--bg3);border-bottom:1px solid var(--bd);
+  letter-spacing:.02em;
+}
+.fb-card-b{padding:12px;min-width:0}
+.fb-card-f{padding:0 12px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fb-card-f .fb-note{width:100%}
+
+.fb-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.fb-kpi{
+  background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);
+  padding:10px 12px;min-width:0;
+}
+.fb-kpi-k{
+  font-size:9.5px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:5px;
+}
+.fb-kpi-v{
+  font-size:19px;font-weight:700;color:var(--t1);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.fb-kpi-v small{font-size:11px;font-weight:500;color:var(--t3)}
+
+.fb-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.fb-tbl th{
+  text-align:left;padding:7px 8px;color:var(--t3);font-size:10px;
+  text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+  border-bottom:1px solid var(--bd);white-space:nowrap;
+}
+.fb-tbl td{padding:7px 8px;border-bottom:1px solid rgba(58,42,29,.5);color:var(--t1)}
+.fb-tbl tbody tr:last-child td{border-bottom:none}
+.fb-tbl-click tbody tr{cursor:pointer}
+.fb-tbl-click tbody tr:hover{background:rgba(255,138,0,.07)}
+.fb-tbl-click tbody tr.sel{background:rgba(255,138,0,.14);box-shadow:inset 2px 0 0 var(--accent)}
+.fb-tbl-em td{font-weight:700;color:var(--accent-hi)}
+
+.fb-ctl{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:9px 12px;background:var(--bg2);border:1px solid var(--bd);
+  border-radius:var(--r);
+}
+.fb-ctl label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.07em}
+.fb-select{
+  background:var(--bg3);border:1px solid var(--bd);color:var(--t1);
+  border-radius:6px;padding:5px 8px;font:inherit;font-size:12px;max-width:260px;
+}
+.fb-select:focus{outline:none;border-color:var(--bd-acc)}
+.fb-btn{
+  padding:5px 12px;border-radius:6px;font:inherit;font-size:11.5px;font-weight:600;
+  background:linear-gradient(180deg,#FFB03A,var(--accent));color:#120A02;
+  border:1px solid var(--accent);cursor:pointer;transition:all 130ms ease;
+}
+.fb-btn:hover{background:linear-gradient(180deg,#FFC162,var(--accent-hi))}
+.fb-btn.ghost{
+  background:transparent;color:var(--accent-hi);border-color:var(--bd-acc);
+}
+.fb-btn.ghost:hover{background:var(--accent-dim)}
+.fb-leadbar{display:inline-flex;gap:3px;flex-wrap:wrap}
+.fb-mini{
+  padding:3px 7px;border-radius:5px;border:1px solid var(--bd);
+  background:var(--bg3);color:var(--t2);font:inherit;font-size:11px;
+  cursor:pointer;transition:all 120ms ease;
+}
+.fb-mini:hover{color:var(--t1);border-color:var(--bd-acc)}
+.fb-mini.on{
+  background:linear-gradient(180deg,#FFB03A,var(--accent));color:#120A02;
+  font-weight:700;border-color:var(--accent);
+}
+
+.fb-chips{display:flex;gap:6px;flex-wrap:wrap}
+.fb-pill{
+  display:inline-block;padding:2px 8px;border-radius:999px;
+  font-size:10.5px;font-weight:700;letter-spacing:.02em;
+  background:var(--bg4);color:var(--t2);border:1px solid var(--bd);
+}
+.fb-pill.up,.fb-pill.improving,.fb-pill.stable{
+  color:#7CE0B4;border-color:rgba(18,212,154,.40);background:rgba(18,212,154,.10)}
+.fb-pill.down,.fb-pill.deteriorating,.fb-pill.unstable{
+  color:#FF8A97;border-color:rgba(242,66,85,.40);background:rgba(242,66,85,.10)}
+.fb-pill.neutral,.fb-pill.na{color:var(--t2);border-color:var(--bd)}
+.fb-pill.high,.fb-pill.critical{color:#FF8A97;border-color:rgba(242,66,85,.40);
+  background:rgba(242,66,85,.10)}
+.fb-pill.moderate,.fb-pill.low,.fb-pill.very_low{color:#FFD08A;
+  border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.10)}
+
+.fb-bars{display:flex;flex-direction:column;gap:7px}
+.fb-bar-row{display:grid;grid-template-columns:minmax(96px,1.2fr) minmax(0,3fr) auto;
+  gap:9px;align-items:center}
+.fb-bar-lab{font-size:11.5px;color:var(--t2);overflow:hidden;text-overflow:ellipsis}
+.fb-bar-lab small{color:var(--t3);font-size:10px}
+.fb-bar-track{height:9px;border-radius:99px;background:var(--bg4);overflow:hidden}
+.fb-bar-fill{height:100%;border-radius:99px;background:var(--accent);min-width:2px}
+.fb-bar-fill.up{background:var(--green)}
+.fb-bar-fill.down{background:var(--red)}
+.fb-bar-fill.flat,.fb-bar-fill.na{background:#6B6156}
+.fb-bar-n{font-size:11.5px;font-weight:700;color:var(--t1);white-space:nowrap}
+.fb-bar-n small{font-weight:500;color:var(--t3)}
+
+.fb-note{font-size:11px;color:var(--t3);line-height:1.55;margin-top:8px}
+.fb-list{margin:0 0 8px;padding-left:16px;font-size:12px;color:var(--t2);line-height:1.6}
+.fb-list li{margin-bottom:3px}
+.fb-cta{margin-top:8px}
+
+.fb-loading{display:flex;align-items:center;gap:9px;padding:18px 12px;
+  font-size:12px;color:var(--t3)}
+.fb-empty{
+  padding:16px 14px;border:1px dashed var(--bd);border-radius:var(--r);
+  background:rgba(255,138,0,.035);
+}
+.fb-empty-t{font-size:12.5px;font-weight:700;color:var(--t1);margin-bottom:5px}
+.fb-empty-b{font-size:11.5px;color:var(--t2);line-height:1.6}
+.fb-empty-err{border-color:rgba(242,66,85,.45);background:rgba(242,66,85,.07)}
+.fb-empty-err .fb-empty-t{color:#FF8A97}
+
+.fb-chart{display:flex;flex-direction:column;gap:6px}
+.fb-legend{display:flex;gap:12px;flex-wrap:wrap}
+.fb-legend-i{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--t2)}
+.fb-legend-i i{width:14px;height:3px;border-radius:2px;background:var(--c);display:inline-block}
+
+.fb-driftmap{
+  border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;
+  background:var(--bg3);padding:6px;
+}
+.fb-drift-scale{display:flex;align-items:center;gap:8px;margin-top:6px;
+  font-size:10.5px;color:var(--t3)}
+.fb-drift-scale i{flex:1;height:9px;border-radius:99px;display:block;
+  border:1px solid var(--bd)}
+.fb-drift-note{font-size:10.5px;color:var(--t3);line-height:1.55;margin-top:6px}
+
+.fb-var-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fb-var{border:1px solid var(--bd);border-radius:var(--r);background:var(--bg3);
+  padding:9px 11px;min-width:0}
+.fb-var-h{font-size:12px;font-weight:700;color:var(--accent-hi);margin-bottom:7px}
+.fb-var-h small{color:var(--t3);font-weight:500;font-size:10px}
+.fb-var-rows{display:flex;flex-direction:column;gap:3px}
+.fb-var-r{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;
+  color:var(--t2);padding:2px 0;border-bottom:1px dotted rgba(58,42,29,.7)}
+.fb-var-r:last-child{border-bottom:none}
+.fb-var-r b{color:var(--t1);font-weight:700;white-space:nowrap}
+
+.fb-scen{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.fb-scen-c{
+  border:1px solid var(--bd);border-radius:var(--r);padding:11px 12px;
+  background:var(--bg3);border-left:3px solid var(--accent);
+}
+.fb-scen-c.drier{border-left-color:#4FC3F7}
+.fb-scen-c.likely{border-left-color:var(--accent)}
+.fb-scen-c.wetter{border-left-color:var(--amber)}
+.fb-scen-c.tail{border-left-color:var(--red)}
+.fb-scen-c.ctrl{border-left-color:#6B6156}
+.fb-scen-c.obs{border-left-color:var(--green)}
+.fb-scen-k{font-size:10.5px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:6px}
+.fb-scen-v{font-size:20px;font-weight:700;color:var(--t1)}
+.fb-scen-v small{font-size:11px;font-weight:500;color:var(--t3)}
+
+@media (max-width:1100px){
+  .fb-grid2{grid-template-columns:minmax(0,1fr)}
+  .fb-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fb-var-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:640px){
+  .fb-kpis{grid-template-columns:minmax(0,1fr)}
+  .fb-bar-row{grid-template-columns:minmax(0,1fr)}
+  .fb-bar-n{justify-self:end}
+  .fb-pane-t{font-size:12px}
+  .fb-tab{font-size:11px;padding:5px 9px}
+}
+
+/* ── global search (Operations Center header) ── */
+.fb-search{position:relative;flex:0 1 260px;min-width:170px}
+.fb-search .fb-input{width:100%;padding:6px 9px;background:var(--bg2);
+  border:1px solid var(--bd);border-radius:7px;color:var(--t1);
+  font:inherit;font-size:12.5px}
+.fb-search .fb-input:focus{outline:none;border-color:var(--bd-acc)}
+.fb-search-pop{position:absolute;top:calc(100% + 6px);right:0;z-index:60;
+  width:min(420px,80vw);max-height:340px;overflow:auto;background:var(--bg2);
+  border:1px solid var(--bd);border-radius:9px;box-shadow:0 14px 34px rgba(0,0,0,.55);
+  padding:6px}
+.fb-search-pop[hidden]{display:none}
+.fb-search-hit{display:flex;gap:8px;align-items:baseline;justify-content:space-between;
+  padding:7px 9px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--t1)}
+.fb-search-hit:hover{background:var(--bg3)}
+.fb-search-hit small{color:var(--t3);font-size:11.5px;text-align:right;flex:0 1 auto}
+.fb-search-ns{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--t3);padding:8px 9px 3px}
+.fb-search-none{padding:12px 9px;color:var(--t3);font-size:12.5px}
 </style>
 </head>
 <body>
@@ -1232,12 +1566,18 @@ a:focus-visible,button:focus-visible{
         <div class="card" id="mapCard">
           <div class="card-hdr">
             <div>
-              <div class="card-title">Forecast Confidence Map</div>
+              <div class="card-title" id="mapTitle">Forecast Confidence Map</div>
               <div class="card-sub" id="mapSub">India | Lead Time: Day 3 (72 – 96 h)</div>
             </div>
           </div>
           <div class="map-toolbar">
             <div class="lead-bar" id="leadBar"></div>
+            <div class="seg" id="modeSeg" role="group" aria-label="Map view mode">
+              <button type="button" class="seg-btn" data-seg="conf"
+                      title="Absolute Reliability Score">Reliability</button>
+              <button type="button" class="seg-btn" data-seg="change"
+                      title="Change against the previous forecast cycle, same valid time">Forecast Change</button>
+            </div>
             <div class="map-ctl">
               <select id="layerSel"></select>
             </div>
@@ -1254,6 +1594,7 @@ a:focus-visible,button:focus-visible{
               <button class="dl-btn" id="dlBtn">↓ Download JSON</button>
             </div>
           </div>
+          <div class="change-note" id="changeNote" hidden></div>
           <div id="mapWrap">
             <canvas id="map" width="880" height="740" tabindex="0"
                     role="img"
@@ -1311,6 +1652,36 @@ a:focus-visible,button:focus-visible{
       <div class="view-card">
         <div class="view-card-hdr">Bust Probability Heatmap</div>
         <div class="view-card-body" id="heatmap"></div>
+      </div>
+    </section>
+
+    <!-- ───────────── FORECAST INTELLIGENCE ───────────── -->
+    <section class="view" id="view-intel">
+      <div class="fb-pane">
+        <div class="fb-pane-h">
+          <div class="fb-pane-t">Forecast Intelligence</div>
+          <nav class="fb-tabs" id="intelTabs" aria-label="Forecast Intelligence sections"></nav>
+        </div>
+        <div class="fb-pane-b" id="intelBody"></div>
+      </div>
+    </section>
+
+    <!-- ───────────── OPERATIONS CENTER ───────────── -->
+    <section class="view" id="view-ops">
+      <div class="fb-pane">
+        <div class="fb-pane-h">
+          <div class="fb-pane-t">Operations Center</div>
+          <nav class="fb-tabs" id="opsTabs" aria-label="Operations Center sections"></nav>
+          <div class="fb-search">
+            <input type="search" id="fbSearchBox" class="fb-input" autocomplete="off"
+                   placeholder="Search regions, rules, event types…"
+                   aria-label="Search the dashboard" oninput="fbSearch(this.value)"
+                   onfocus="fbSearch(this.value)"
+                   onblur="setTimeout(function(){fbSearchClose();},200)">
+            <div class="fb-search-pop" id="fbSearchPop" hidden></div>
+          </div>
+        </div>
+        <div class="fb-pane-b" id="opsBody"></div>
       </div>
     </section>
 
@@ -1468,11 +1839,18 @@ a:focus-visible,button:focus-visible{
 </div>
 
 <!-- ═════════════════════════════ SCRIPT ═════════════════════════════ -->
+<script src="/app/fbews-platform.js"></script>
+<script src="/app/fbews-intel.js"></script>
+<script src="/app/fbews-ops.js"></script>
 <script>
 /* ── state ── */
 const S = {
   products: null, boundaries: null,
   lead: 3, layer: "confidence", cycle: null,
+  /* map view mode: "abs" shows a layer as-is, "change" shows how the layer was
+     revised against the previous forecast cycle at the same valid time. */
+  mode: "abs",
+  compare: null, compareLoading: false,
   metrics: null, caseStudy: null, datasets: null,
   sel: null, hover: null, hoverState: -1,
   geo: {capitals: [], cities: [], countries: []}
@@ -1480,6 +1858,8 @@ const S = {
 const VIEWS = [
   ["overview","Overview","M2 2h4v4H2V2zm6 0h4v4H8V2zm6 0h4v4h-4V2zM2 8h4v4H2V8zm6 0h4v4H8V8zm6 0h4v4h-4V8z"],
   ["regions","Regions","M3 12L9 4l6 8zM7 12l2-3 2 3"],
+  ["intel","Forecast Intelligence","M2 12l3.5-4.5 3 2.5L14 4M11 4h3v3"],
+  ["ops","Operations Center","M4 3h8v11H4V3zM6.5 6.5h3M6.5 9h3M6.5 11.5h2"],
   ["case","Case Study","M8 2a6 6 0 100 12A6 6 0 008 2zm0 3v3l3 2"],
   ["model","Model Performance","M2 12h3V7h3v5h3V4h3v8"],
   ["data","Data Sources","M8 2C5 2 3 3.3 3 5s2 3 5 3 5-1.3 5-3-2-3-5-3zM3 8c0 1.7 2 3 5 3s5-1.3 5-3M3 11c0 1.7 2 3 5 3s5-1.3 5-3"],
@@ -1526,6 +1906,306 @@ function colorCell(k,val,rng){
   if(val===null||!isFinite(val)) return null;
   const sc=scaleFor(k);
   return scaleColor(sc.stops,(val-rng[0])/((rng[1]-rng[0])||1));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DERIVED DATA - Forecast Drift (FEATURE 1) + Forecast Stability (FEATURE 2)
+   One shared cache per (cycle, lead, metric) feeds the map, the tooltip, the
+   analysis panel and the state markers, so nothing is fetched or computed
+   twice and every surface reads the same numbers.
+   NOTE: SCALES / scaleColor / colorCell above are untouched - the diverging
+   ramp below is a separate scale used only by Forecast Change mode.
+═══════════════════════════════════════════════════════════════════════ */
+const DERIVED = {compare:new Map(), point:new Map(), stability:new Map()};
+/* deteriorated -> no change -> improved */
+const DIVERGE = {stops:[[210,50,55],[230,120,35],[228,195,55],[140,195,95],[55,185,125]]};
+/* Layers whose change has a "better/worse" direction (mirrors METRICS in
+   fbews/derived/change.py). fc_precip is deliberately absent: more rain is
+   not automatically a better forecast. */
+const DIRECTIONAL = new Set(["confidence","bust_probability","err_precip","err_t2m",
+  "err_wind","err_mslp","ens_spread_precip","volatility","analogue_bust_rate"]);
+
+function currentCycle(){ return S.products ? S.products.meta.forecast_cycle.slice(0,10) : null; }
+function compareCacheKey(cycle,lead,metric){ return cycle+"|"+lead+"|"+metric; }
+function currentCompareKey(){
+  const cycle=currentCycle();
+  return cycle ? compareCacheKey(cycle,S.lead,S.layer) : null;
+}
+function syncCompareToKey(){
+  const k=currentCompareKey();
+  S.compare = (k && DERIVED.compare.has(k)) ? DERIVED.compare.get(k) : null;
+}
+function isChangeMode(){ return S.mode==="change"; }
+function changeReady(){ return isChangeMode() && !!(S.compare && S.compare.available); }
+function cmpToken(){
+  const c=S.compare;
+  return c ? [c.cycle,c.previousCycle,c.previousLead,c.metric,c.available?1:0].join("/") : "none";
+}
+
+async function memoFetch(map,key,url){
+  if(map.has(key)) return map.get(key);
+  const data=await fetch(url).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
+  if(map.size>80) map.clear();
+  map.set(key,data);
+  return data;
+}
+
+/* Comparison payload for the active (cycle, lead, layer). Cached even when the
+   answer is "unavailable" so the reason is rendered once, not re-requested. */
+async function ensureComparison(){
+  const cycle=currentCycle();
+  if(!cycle) return null;
+  const key=compareCacheKey(cycle,S.lead,S.layer);
+  if(DERIVED.compare.has(key)){ S.compare=DERIVED.compare.get(key); return S.compare; }
+  S.compareLoading=true;
+  updateChangeNote();
+  try{
+    const data=await memoFetch(DERIVED.compare,key,
+      `/api/forecast-comparison?cycle=${cycle}&lead=${S.lead}&metric=${S.layer}`);
+    S.compare=data;
+    return data;
+  }catch(e){
+    const data={available:false,reason:"request_failed",
+                message:`Comparison unavailable: ${e.message}`,
+                cycle,lead:S.lead,metric:S.layer,previousCycle:null,
+                availableLeads:[],change:[],status:[],statusLabels:{}};
+    DERIVED.compare.set(key,data);
+    S.compare=data;
+    return data;
+  }finally{
+    S.compareLoading=false;
+    updateChangeNote();
+  }
+}
+
+/* Two map modes only: the absolute heatmap (tab "Reliability") and the
+   comparison heatmap (tab "Forecast Change"). The absolute layer itself keeps
+   coming from the separate metric selector. */
+function activeSeg(){
+  return isChangeMode() ? "change" : "conf";
+}
+function syncModeUI(){
+  const seg=activeSeg();
+  document.querySelectorAll("#modeSeg .seg-btn").forEach(b=>
+    b.classList.toggle("on", b.dataset.seg===seg));
+  const ls=document.getElementById("layerSel");
+  if(ls && ls.value!==S.layer){
+    const has=[...ls.options].some(o=>o.value===S.layer);
+    if(has) ls.value=S.layer;
+  }
+}
+function invalidateDerivedViews(){
+  _legKey=null;
+  _metaKey=null;
+  _labCache={key:null,list:null};
+  _stChgKey=null; _stChg=null;
+}
+
+/* Single entry point used by the mode switch, the layer selector, the lead bar
+   and cycle changes. Repaints immediately from cache, then again once the
+   comparison for the new key has arrived. */
+function refreshDerived(){
+  syncCompareToKey();
+  invalidateDerivedViews();
+  syncModeUI();
+  drawMap();
+  updateChangeNote();
+  updateLeadHints();
+  if(S.sel) showDetail(S.sel);
+  ensureComparison().then(()=>{
+    invalidateDerivedViews();
+    syncModeUI();
+    updateLeadHints();
+    updateChangeNote();
+    drawMap();
+    if(S.sel) showDetail(S.sel);
+  });
+}
+function setMode(seg){
+  if(seg==="change"){
+    if(S.mode==="change") return;
+    S.mode="change";
+    if(!DIRECTIONAL.has(S.layer)) S.layer="confidence";
+  }else{
+    /* "Reliability" is the only absolute mode and always means the confidence
+       heatmap; any other absolute layer comes from the metric selector. */
+    if(S.mode==="abs" && S.layer==="confidence") return;
+    S.mode="abs";
+    S.layer="confidence";
+  }
+  refreshDerived();
+}
+/* Forecast Change gates the lead bar: a lead can only be compared when the
+   previous cycle reaches the same valid time. Reliability never gates it. */
+function updateLeadHints(){
+  const c=S.compare;
+  const leads=(c && c.availableLeads && c.availableLeads.length) ? c.availableLeads : null;
+  const gate=isChangeMode() && !!leads;
+  document.querySelectorAll(".lead-btn").forEach(b=>{
+    if(!gate){
+      b.classList.remove("cmp-ok","cmp-no");
+      b.disabled=false;
+      b.removeAttribute("title");
+      return;
+    }
+    const ok=leads.indexOf(+b.dataset.l)>=0;
+    b.classList.toggle("cmp-ok",ok);
+    b.classList.toggle("cmp-no",!ok);
+    b.disabled=!ok;
+    b.title = ok ? "Comparable with the previous forecast cycle"
+                 : "Comparison unavailable for this lead time";
+  });
+}
+function unitSuffix(c){
+  if(!c||!c.units||c.units==="0-100"||c.units==="0-1") return "";
+  return " "+c.units;
+}
+function fmtThreshold(c){
+  if(!c||c.threshold==null) return "—";
+  if(c.units==="0-1") return Math.round(c.threshold*100)+" pp";
+  if(c.metric==="confidence") return c.threshold+" points";
+  if(c.decimals===0) return String(c.threshold);
+  return c.threshold.toFixed(c.decimals)+unitSuffix(c);
+}
+function fmtVal(c,v){
+  if(v===null||v===undefined||!isFinite(+v)) return "—";
+  if(c.units==="0-1") return fmtPct(v);
+  if(c.decimals===0) return String(Math.round(v));
+  return (+v).toFixed(c.decimals);
+}
+function fmtDelta(c,d){
+  if(d===null||d===undefined||!isFinite(+d)) return "—";
+  const n=+d;
+  if(c.units==="0-1"){ const pp=Math.round(n*100); return (pp>0?"+":"")+pp+" pp"; }
+  if(c.metric==="confidence"){ const p=Math.round(n); return (p>0?"+":"")+p+" points"; }
+  const body=(n>0?"+":"")+n.toFixed(Math.max(0,c.decimals||0));
+  return body+unitSuffix(c);
+}
+function changeStatusColor(st){
+  if(st===1) return "var(--green)";
+  if(st===2) return "var(--red)";
+  if(st===3) return "var(--t3)";
+  return "var(--t2)";
+}
+function changePillClass(st){
+  if(st===1) return "pill-high";
+  if(st===2) return "pill-vlow";
+  if(st===3) return "pill-mod";
+  return "pill-mod";
+}
+/* Current vs previous values for one grid cell under the active comparison. */
+function cellChange(c){
+  const cmp=S.compare;
+  if(!cmp||!cmp.available||!cmp.change) return null;
+  if(c.k>=cmp.change.length) return null;
+  const d=cmp.change[c.k];
+  if(d===null||d===undefined||!isFinite(d)) return null;
+  const st=cmp.status[c.k];
+  return {cur:cmp.current[c.k],prv:cmp.previous[c.k],delta:d,status:st,
+          statusLabel:(cmp.statusLabels&&cmp.statusLabels[String(st)])||"—"};
+}
+function updateChangeNote(){
+  const el=document.getElementById("changeNote");
+  if(!el) return;
+  if(!isChangeMode()){ el.hidden=true; el.className="change-note"; el.innerHTML=""; return; }
+  el.hidden=false;
+  const lbl=layerDef(S.layer).label;
+  if(S.compareLoading||!S.compare){
+    el.className="change-note is-loading";
+    el.innerHTML=`Loading comparison for <b>${lbl}</b>…`;
+    return;
+  }
+  const c=S.compare;
+  if(!c.available){
+    el.className="change-note is-warn";
+    const leads=(c.availableLeads&&c.availableLeads.length)
+      ? ` Comparable leads: ${c.availableLeads.map(l=>"D"+l).join(", ")}.` : "";
+    el.innerHTML=`<span>${c.message||"Comparison unavailable."}${leads}</span>`;
+    return;
+  }
+  const name=c.label||layerDef(S.layer).label;
+  el.className="change-note";
+  el.innerHTML=`
+    <span class="cn-chip">Forecast Change</span>
+    <span><b>${name}</b> · Day ${c.lead} of <b>${c.cycle}</b> vs Day ${c.previousLead} of
+      <b>${c.previousCycle}</b> · same valid time <b>${c.validTime}</b></span>
+    <span>±${fmtThreshold(c)} = No Change</span>`;
+}
+/* Forecast Change heatmap range: symmetric about zero so "no change" always
+   lands on the neutral stop, capped at the layer's natural range. */
+function changeCap(c){
+  if(!c) return null;
+  if(c.metric==="confidence") return 100;
+  if(c.units==="0-1") return 1;
+  return null;
+}
+function changeRange(vals){
+  const v=(vals||[]).filter(x=>x!==null&&x!==undefined&&isFinite(+x))
+            .map(x=>Math.abs(+x)).sort((a,b)=>a-b);
+  if(!v.length) return [-1,1];
+  let m=v[Math.floor(v.length*0.98)] || v[v.length-1] || 1;
+  const cap=changeCap(S.compare);
+  if(cap!=null) m=Math.min(m,cap);
+  m=Math.max(m,1e-6);
+  return [-m,m];
+}
+function makePaint(rng){
+  if(isChangeMode()){
+    const cmp=S.compare;
+    const neutral=scaleColor(DIVERGE.stops,0.5);
+    const dir=(cmp&&cmp.higherIsBetter===false)?-1:1;
+    const mag=rng[1]||1;
+    const status=(cmp&&cmp.status)?cmp.status:null;
+    return (v,i)=>{
+      if(v===null||v===undefined||!isFinite(v)) return null;
+      if(status&&status[i]===3) return null;                 // no data -> leave uncovered
+      if(status&&status[i]===0) return neutral;              // inside the no-change band
+      const t=(Math.max(-1,Math.min(1,(dir*v)/mag))+1)/2;
+      return scaleColor(DIVERGE.stops,t);
+    };
+  }
+  const layer=S.layer;
+  return v=>colorCell(layer,v,rng);
+}
+/* State-level change: mean quality-signed delta over the state's grid cells,
+   classified with the same threshold the cell map uses. The state polygons
+   only exist client-side, so this aggregation lives here rather than being
+   duplicated in the backend. */
+let _stChg=null,_stChgKey=null;
+function stateChangeMap(){
+  const c=S.compare;
+  if(!c||!c.available||!c.change) return null;
+  if(!B.cellState) buildCellStateIndex();
+  if(!B.cellState) return null;
+  const key=[c.cycle,c.previousCycle,c.previousLead,c.metric,
+             S.products.grid.shape.join("x"),B.features.length].join("|");
+  if(_stChg&&_stChgKey===key) return _stChg;
+  const n=B.features.length;
+  const sum=new Float64Array(n), cnt=new Int32Array(n);
+  const dir=(c.higherIsBetter===false)?-1:1;
+  for(let k=0;k<c.change.length;k++){
+    const v=c.change[k];
+    if(v===null||v===undefined||!isFinite(v)) continue;
+    const si=B.cellState[k];
+    if(si<0) continue;
+    sum[si]+=dir*v; cnt[si]++;
+  }
+  const list=new Array(n).fill(null);
+  for(let i=0;i<n;i++) if(cnt[i]>0) list[i]={q:sum[i]/cnt[i],n:cnt[i]};
+  _stChg=list; _stChgKey=key;
+  return list;
+}
+function stateChangeColor(si){
+  if(!isChangeMode()) return null;
+  const c=S.compare;
+  if(!c||!c.available) return null;
+  const list=stateChangeMap();
+  if(!list||si<0||!list[si]) return null;
+  const q=list[si].q;
+  if(Math.abs(q)<=(c.threshold||0)) return scaleColor(DIVERGE.stops,0.5);
+  const mag=(S._chgRng&&S._chgRng[1])||Math.abs(q)||1;
+  const t=(Math.max(-1,Math.min(1,q/mag))+1)/2;
+  return scaleColor(DIVERGE.stops,t);
 }
 
 /* ── point-in-polygon ── */
@@ -1841,8 +2521,21 @@ function drawMap(){
   if(!VIEW.ready&&B.bbox) fitMap();
   const p=proj(), g=S.products.grid, res=g.resolution_deg;
   const L=S.products.layers[String(S.lead)];
-  const vals=L[S.layer];
-  const rng=layerRange(S.layer,vals);
+  /* In Forecast Change mode the "layer" is the cycle-to-cycle delta produced by
+     /api/forecast-comparison; otherwise it is the absolute layer itself. */
+  const chg=isChangeMode();
+  let vals=null, rng=null;
+  if(chg){
+    if(S.compare&&S.compare.available){
+      vals=S.compare.change;
+      rng=changeRange(vals);
+      S._chgRng=rng;
+    }
+  }else{
+    vals=L[S.layer];
+    rng=layerRange(S.layer,vals);
+  }
+  const paint=vals?makePaint(rng):null;
   const op=(+document.getElementById("opacity").value)/100;
   const z=zoomLevel();
 
@@ -1867,7 +2560,7 @@ function drawMap(){
   }
 
   /* heatmap — clipped to the India union, drawn through the geographic transform */
-  const heat=heatCanvas(vals,rng,op);
+  const heat=vals?heatCanvas(vals,rng,op,paint):null;
   if(B.ready&&heat){
     ctx.save();
     _setGeo(p);
@@ -1928,12 +2621,13 @@ function drawMap(){
   updateMetaText();
 }
 
-/* offscreen heatmap, cached per (lead, layer, opacity, range, cycle) */
+/* offscreen heatmap, cached per (lead, layer/mode, opacity, range, cycle) */
 let _heat={key:null,cv:null};
-function heatCanvas(vals,rng,op){
+function heatCanvas(vals,rng,op,paint){
   const g=S.products.grid;
-  const key=[S.lead,S.layer,op,rng[0].toFixed(4),rng[1].toFixed(4),
-             S.products.meta.forecast_cycle,S.products.grid.shape.join("x")].join("|");
+  const key=[S.lead,S.mode,S.layer,op,rng[0].toFixed(4),rng[1].toFixed(4),
+             S.products.meta.forecast_cycle,S.products.grid.shape.join("x"),
+             cmpToken()].join("|");
   if(_heat.key===key&&_heat.cv) return _heat.cv;
   const W=g.lon.length, H=g.lat.length;
   const c=document.createElement("canvas");
@@ -1942,7 +2636,8 @@ function heatCanvas(vals,rng,op){
   const img=cx.createImageData(W,H), d=img.data;
   for(let i=0;i<H;i++){
     for(let j=0;j<W;j++){
-      const col=colorCell(S.layer,vals[i*W+j],rng);
+      const k=i*W+j;
+      const col=paint(vals[k],k);
       if(!col) continue;
       const m=col.match(/\d+/g);
       const idx=((H-1-i)*W+j)*4;
@@ -2136,7 +2831,7 @@ function layoutLabels(p,z){
   const {W,H}=mapSize();
   const key=[W,H,VIEW.cx.toFixed(4),VIEW.cy.toFixed(4),VIEW.dpp.toFixed(6),
              z.toFixed(3),S.geo.capitals.length,S.geo.cities.length,B.features.length,
-             S.sel?S.sel.i+"."+S.sel.j:"-"].join("|");
+             S.mode,cmpToken(),S.sel?S.sel.i+"."+S.sel.j:"-"].join("|");
   if(_labCache.key===key&&_labCache.list) return _labCache.list;
   const zones=uiZones();
   /* keep labels off the location pin (body hangs above its tip) */
@@ -2166,6 +2861,12 @@ function layoutLabels(p,z){
     const box=chosen||loose;
     const entry=Object.assign({},c,{font,X,Y,fill:st.fill(c),dot:st.dot?st.dot(c):null,
                                     bx:box?box.x:0,by:box?box.y+h/2:0,hasText:!!box});
+    /* Forecast Change mode: the one-marker-per-state capital dot becomes the
+       state-level change marker (colour = mean quality-signed delta). */
+    if(S.mode==="change"&&c.kind==="capital"){
+      const col=stateChangeColor(c.stateIdx);
+      if(col) entry.dot=col;
+    }
     out.push(entry);
     if(box) placed.push(box);
     if(st.dot) placed.push({x:X-3.5,y:Y-3.5,w:7,h:7});
@@ -2243,14 +2944,30 @@ function ticksFor(rng){
 /* ── legend ── */
 let _legKey=null;
 function updateLegend(rng){
-  const key=[S.layer,rng[0].toFixed(5),rng[1].toFixed(5),layerDef(S.layer).label].join("|");
+  const key=[S.mode,S.layer,cmpToken(),rng?rng[0].toFixed(5)+"|"+rng[1].toFixed(5):"none",
+             layerDef(S.layer).label].join("|");
   if(_legKey===key) return;
   _legKey=key;
   buildLegend(rng);
 }
+function hideLegend(){
+  const el=document.getElementById("mapLegend");
+  if(!el) return;
+  el.style.display="none";
+  el.innerHTML="";
+}
 function buildLegend(rng){
   const el=document.getElementById("mapLegend");
   if(!el) return;
+  if(!rng){ hideLegend(); return; }
+  el.style.display="";
+  if(isChangeMode()){
+    /* No valid comparison -> no scale to show. Never fall back to the
+       absolute legend, which would read as if the change were plotted. */
+    if(S.compare&&S.compare.available){ buildChangeLegend(rng); return; }
+    hideLegend();
+    return;
+  }
   const isConf=(S.layer==="confidence");
   const sc=scaleFor(S.layer);
   const span=rng[1]-rng[0];
@@ -2271,6 +2988,36 @@ function buildLegend(rng){
   const rctx=rc.getContext("2d");
   const g=rctx.createLinearGradient(0,0,rc.width,0);
   for(let i=0;i<=24;i++) g.addColorStop(i/24,scaleColor(sc.stops,i/24));
+  rctx.fillStyle=g;
+  rctx.fillRect(0,0,rc.width,rc.height);
+}
+/* Diverging legend for Forecast Change. The ramp always reads
+   deteriorated -> no change -> improved from left to right, so the numeric
+   end ticks are flipped when a lower value is the better one. */
+function buildChangeLegend(rng){
+  const el=document.getElementById("mapLegend");
+  const c=S.compare;
+  const mag=rng[1]||1;
+  const left=(c.higherIsBetter===false)?mag:-mag;
+  const right=-left;
+  const fmt=v=>v===0?"0":fmtDelta(c,v);
+  el.innerHTML=`
+    <div class="leg-title">Forecast Change · ${c.label}</div>
+    <canvas class="leg-ramp" id="rampCv" width="320" height="14"></canvas>
+    <div class="leg-ticks">
+      <span style="left:0%;color:${scaleColor(DIVERGE.stops,0)}">${fmt(left)}</span>
+      <span style="left:50%;color:${scaleColor(DIVERGE.stops,0.5)}">0</span>
+      <span style="left:100%;color:${scaleColor(DIVERGE.stops,1)}">${fmt(right)}</span>
+    </div>
+    <div class="leg-ends"><span>↓ Deteriorated</span><span>↑ Improved</span></div>
+    <div class="leg-neutral">— No meaningful change</div>
+    <div class="leg-note">Same valid time vs ${c.previousCycle}.
+      ±${fmtThreshold(c)} = No Change.</div>`;
+  const rc=document.getElementById("rampCv");
+  if(!rc) return;
+  const rctx=rc.getContext("2d");
+  const g=rctx.createLinearGradient(0,0,rc.width,0);
+  for(let i=0;i<=24;i++) g.addColorStop(i/24,scaleColor(DIVERGE.stops,i/24));
   rctx.fillStyle=g;
   rctx.fillRect(0,0,rc.width,rc.height);
 }
@@ -2295,12 +3042,16 @@ function updateScaleBar(p){
 let _metaKey=null;
 function updateMetaText(){
   if(!S.products) return;
-  const key=S.lead+"|"+S.products.meta.forecast_cycle;
+  const key=S.lead+"|"+S.products.meta.forecast_cycle+"|"+S.mode+"|"+S.layer;
   if(_metaKey===key) return;
   _metaKey=key;
   const hrs=l=>`${l*24} – ${(l+1)*24} h`;
-  document.getElementById("mapSub").textContent=
-    `India | Lead Time: Day ${S.lead} (${hrs(S.lead)})`;
+  const chg=isChangeMode();
+  document.getElementById("mapTitle").textContent=
+    chg?"Forecast Change Map":"Forecast Confidence Map";
+  document.getElementById("mapSub").textContent= chg
+    ? `India | Forecast Change: ${layerDef(S.layer).label} | Day ${S.lead} (${hrs(S.lead)})`
+    : `India | Lead Time: Day ${S.lead} (${hrs(S.lead)})`;
   const fc=S.products.meta.forecast_cycle.slice(0,10);
   const ld=new Date(fc); ld.setDate(ld.getDate()+S.lead);
   document.getElementById("mapValid").textContent=
@@ -2328,6 +3079,54 @@ function hideTip(){
   const t=document.getElementById("tip");
   if(t.style.display!=="none") t.style.display="none";
 }
+function changeTipHTML(c){
+  const cmp=S.compare;
+  if(!cmp) return "";
+  if(!cmp.available){
+    if(!isChangeMode()) return "";
+    return `<div class="tip-row">
+        <span class="tip-k">Forecast Change</span>
+        <span class="tip-v" style="color:var(--red);font-size:11px">Unavailable</span>
+      </div>
+      <div class="tip-hint">${cmp.message||"Comparison unavailable."}</div>`;
+  }
+  const d=cellChange(c);
+  const st=d?d.status:3;
+  const lbl=(cmp.statusLabels&&cmp.statusLabels[String(st)])||"—";
+  if(!isChangeMode()){
+    /* secondary indicator beside the selected metric */
+    if(!d) return "";
+    return `<div class="tip-row">
+        <span class="tip-k">Forecast Change</span>
+        <span class="tip-v" style="color:${changeStatusColor(st)}">${fmtDelta(cmp,d.delta)}</span>
+      </div>
+      <div class="tip-row">
+        <span class="tip-k">vs ${cmp.previousCycle}</span>
+        <span class="tip-v"><span class="risk-pill ${changePillClass(st)}">${lbl}</span></span>
+      </div>`;
+  }
+  const dir=!d?"—":(d.delta<0?"▼ Lower":d.delta>0?"▲ Higher":"■ Unchanged");
+  const dirCol=st===1?"var(--green)":st===2?"var(--red)":"var(--t1)";
+  return `
+      <div class="tip-row"><span class="tip-k">Previous cycle</span>
+        <span class="tip-v">${cmp.previousCycle} · D${cmp.previousLead}</span></div>
+      <div class="tip-row"><span class="tip-k">Current cycle</span>
+        <span class="tip-v">${cmp.cycle} · D${cmp.lead}</span></div>
+      <div class="tip-row"><span class="tip-k">Valid time</span>
+        <span class="tip-v">${cmp.validTime}</span></div>
+      <div class="tip-row"><span class="tip-k">Lead time</span>
+        <span class="tip-v">Day ${cmp.lead} (vs Day ${cmp.previousLead})</span></div>
+      <div class="tip-row"><span class="tip-k">Previous value</span>
+        <span class="tip-v">${d?fmtVal(cmp,d.prv):"—"}</span></div>
+      <div class="tip-row"><span class="tip-k">Current value</span>
+        <span class="tip-v">${d?fmtVal(cmp,d.cur):"—"}</span></div>
+      <div class="tip-row"><span class="tip-k">Change</span>
+        <span class="tip-v" style="color:${changeStatusColor(st)}">${d?fmtDelta(cmp,d.delta):"—"}</span></div>
+      <div class="tip-row"><span class="tip-k">Direction</span>
+        <span class="tip-v" style="color:${dirCol}">${dir}</span></div>
+      <div class="tip-row"><span class="tip-k">Status</span>
+        <span><span class="risk-pill ${changePillClass(st)}">${lbl}</span></span></div>`;
+}
 function showTip(c,ev){
   const tip=document.getElementById("tip");
   const L=S.products.layers[String(S.lead)];
@@ -2340,6 +3139,7 @@ function showTip(c,ev){
   const hasBp=(bp!==null&&bp!==undefined&&isFinite(+bp));
   const bpCol=!hasBp?"var(--t1)":(+bp>0.5?"var(--red)":(+bp>0.25?"var(--amber)":"var(--green)"));
   const confCol=hasConf?bandLabel(+conf).c:"var(--t2)";
+  const chg=isChangeMode();
   tip.innerHTML=`
     <div class="tip-hd">
       <div class="tip-title">${stateName||coords}</div>
@@ -2354,10 +3154,11 @@ function showTip(c,ev){
         <span class="tip-k">Bust Probability</span>
         <span class="tip-v" style="color:${bpCol}">${hasBp?fmtPct(bp):"No data"}</span>
       </div>
-      <div class="tip-row">
+      ${chg?"":`<div class="tip-row">
         <span class="tip-k">Status</span>
         <span>${hasConf?pillFor(bandOf(conf)):`<span class="risk-pill pill-mod">No data</span>`}</span>
-      </div>
+      </div>`}
+      ${changeTipHTML(c)}
       <div class="tip-hint">Click to inspect this cell in the analysis panel</div>
     </div>`;
   tip.style.display="block";
@@ -2462,7 +3263,145 @@ function pillFor(b){
 }
 
 /* ── detail panel ── */
+let _detailTok=0;
+/* Forecast Change block for the analysis panel. Reads the shared comparison
+   cache - no extra request, no second definition of the rule. */
+function changePanelHTML(c){
+  const cmp=S.compare;
+  if(!cmp) return "";
+  if(!cmp.available){
+    if(!isChangeMode()) return "";
+    const leads=(cmp.availableLeads&&cmp.availableLeads.length)
+      ? `<br>Comparable leads: ${cmp.availableLeads.map(l=>"Day "+l).join(", ")}.` : "";
+    return `<div class="p-chg-empty"><strong>Forecast Change unavailable</strong><br>
+      ${cmp.message||"Comparison unavailable."}${leads}</div>`;
+  }
+  const d=cellChange(c);
+  const st=d?d.status:3;
+  const lbl=(cmp.statusLabels&&cmp.statusLabels[String(st)])||"—";
+  const cls=st===1?"up":st===2?"down":"flat";
+  return `
+  <div class="p-chg">
+    <div class="p-chg-hd"><span>Forecast Change</span><span>${cmp.label}</span></div>
+    <div class="p-chg-grid">
+      <div class="p-chg-cell"><div class="p-chg-k">Previous (${cmp.previousCycle||"—"})</div>
+        <div class="p-chg-v">${d?fmtVal(cmp,d.prv):"—"}</div></div>
+      <div class="p-chg-cell"><div class="p-chg-k">Current (${cmp.cycle})</div>
+        <div class="p-chg-v">${d?fmtVal(cmp,d.cur):"—"}</div></div>
+      <div class="p-chg-cell"><div class="p-chg-k">Change</div>
+        <div class="p-chg-v delta ${cls}">${d?fmtDelta(cmp,d.delta):"—"}</div></div>
+      <div class="p-chg-cell"><div class="p-chg-k">Status</div>
+        <div class="p-chg-v"><span class="risk-pill ${changePillClass(st)}">${lbl}</span></div></div>
+    </div>
+    <div class="p-chg-ctx">Day ${cmp.lead} of ${cmp.cycle} vs Day ${cmp.previousLead} of
+      ${cmp.previousCycle} · same valid time ${cmp.validTime} · ±${fmtThreshold(cmp)} = No Change</div>
+  </div>`;
+}
+async function fetchStability(c){
+  const cycle=currentCycle();
+  const key=[cycle,c.lat.toFixed(3),c.lon.toFixed(3),S.lead].join("|");
+  try{
+    return await memoFetch(DERIVED.stability,key,
+      `/api/forecast-stability?lat=${c.lat}&lon=${c.lon}&cycle=${cycle}&lead=${S.lead}`);
+  }catch(e){ return {error:e.message}; }
+}
+/* Confidence trajectory for the stability card. The shared sparkSVG helper is
+   sized for the narrow diagnostics spark; this one keeps its own aspect ratio
+   so the D1..D10 axis and the point values stay legible at full panel width. */
+function trajectorySVG(pts){
+  const W=520,H=150,pL=36,pR=10,pT=18,pB=26;
+  const xs=pts.map(p=>p.lead), ys=pts.map(p=>p.value);
+  const lo=Math.max(0,Math.min(...ys)-8), hi=Math.min(100,Math.max(...ys)+8);
+  const gid="traj_"+Math.random().toString(36).slice(2,7);
+  const x=i=>pL+(W-pL-pR)*i/(xs.length-1);
+  const y=v=>H-pB-(H-pB-pT)*(v-lo)/((hi-lo)||1);
+  const line=ys.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const area=[`${x(0).toFixed(1)},${H-pB}`,...ys.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`),
+              `${x(xs.length-1).toFixed(1)},${H-pB}`].join(" ");
+  const grid=[0,.5,1].map(f=>{
+    const yy=pT+(H-pB-pT)*f, v=Math.round(hi-(hi-lo)*f);
+    return `<line x1="${pL}" y1="${yy.toFixed(1)}" x2="${W-pR}" y2="${yy.toFixed(1)}"
+      stroke="var(--bd)" stroke-dasharray="2 4"/>
+      <text x="${pL-6}" y="${(yy+3.5).toFixed(1)}" text-anchor="end"
+        fill="var(--t3)" font-size="11.5">${v}</text>`;
+  }).join("");
+  const labels=xs.map((l,i)=>{
+    const anc=i===0?"start":(i===xs.length-1?"end":"middle");
+    return `<text x="${x(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}"
+      fill="var(--t3)" font-size="12.5">D${l}</text>`;
+  }).join("");
+  const vals=ys.map((v,i)=>{
+    const first=i===0, last=i===ys.length-1;
+    const tx=first?x(i)+6:(last?x(i)-6:x(i));
+    const anc=first?"start":(last?"end":"middle");
+    return `<text x="${tx.toFixed(1)}" y="${(y(v)-8).toFixed(1)}" text-anchor="${anc}"
+      fill="var(--t2)" font-size="11.5" stroke="var(--bg2)" stroke-width="3.5"
+      paint-order="stroke">${Math.round(v)}</text>`;
+  }).join("");
+  const dots=ys.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}"
+      r="4" fill="var(--accent-hi)" stroke="var(--bg2)" stroke-width="1.5"/>`).join("");
+  return `<div class="chartbox"><svg class="traj-svg" viewBox="0 0 ${W} ${H}"
+    style="width:100%;height:auto;display:block"
+    role="img" aria-label="Confidence trajectory across lead times">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF8A00" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#FF8A00" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${grid}
+    <polygon points="${area}" fill="url(#${gid})"/>
+    <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${vals}${labels}
+  </svg></div>`;
+}
+/* Forecast Stability + confidence trajectory (FEATURE 2). */
+function stabilityHTML(s){
+  if(!s) return "";
+  if(s.error) return `<div class="stab-error">Stability unavailable: ${s.error}</div>`;
+  const t=s.trajectory||{}, st=s.stability||{}, vol=s.volatility||{}, cc=s.cycleChange||{};
+  const pts=t.points||[];
+  const ys=pts.map(p=>p.value);
+  const chart=ys.length>=2 ? trajectorySVG(pts)
+    : `<div class="stab-error">Not enough lead-time points for a trajectory.</div>`;
+  const step=x=>x?`${x.delta>0?"+":""}${x.delta} <span style="color:var(--t2);font-weight:500">D${x.fromLead}→D${x.toLead}</span>`:"None";
+  const stepCls=x=>x?(x.delta<0?"neg":"pos"):"";
+  const warn=cc.available?"":(()=>{
+    const m={no_previous_cycle:"Previous forecast cycle unavailable - stability uses the lead-time trend and volatility only.",
+             same_valid_time_out_of_range:`No previous cycle reaches the valid time of Day ${s.leadDay}.`,
+             no_data:"No previous-cycle data for this cell."}[cc.reason]
+      || "Cycle revision unavailable.";
+    return `<div class="stab-warn">${m}</div>`;
+  })();
+  const rules=st.rules||{};
+  return `
+  <div class="stab">
+    <div class="stab-hd">
+      <span class="stab-pill ${st.classification||"stable"}">${st.label||"—"}</span>
+      <span class="stab-score">${st.score==null?"—":st.score}<small> / 100</small></span>
+    </div>
+    <div class="stab-body">
+      <div class="stab-sub">Confidence across lead times · volatility index
+        ${vol.index==null?"—":vol.index} <strong>(${vol.signal||"unavailable"})</strong></div>
+      ${chart}
+      <div class="stab-metrics">
+        <div class="stab-m"><div class="stab-m-k">Largest decline</div>
+          <div class="stab-m-v ${stepCls(t.largestDecline)}">${step(t.largestDecline)}</div></div>
+        <div class="stab-m"><div class="stab-m-k">Largest improvement</div>
+          <div class="stab-m-v ${stepCls(t.largestImprovement)}">${step(t.largestImprovement)}</div></div>
+        <div class="stab-m"><div class="stab-m-k">Latest change</div>
+          <div class="stab-m-v ${stepCls(t.latestChange)}">${step(t.latestChange)}</div></div>
+      </div>
+      ${warn}
+      <div class="stab-note">Derived from the Reliability Score across lead times, the Forecast
+        Volatility Index (calm ≤ ${rules.volatility_low}, elevated ≥ ${rules.volatility_elevated})
+        and the revision against ${s.previousCycle||"the previous cycle"}. Trend counts when
+        |slope| &gt; ${rules.slope_points_per_lead} pt/lead; a cycle revision counts beyond
+        ±${rules.cycle_change_points} points. No new model, no invented score.</div>
+    </div>
+  </div>`;
+}
 async function showDetail(c){
+  const tok=++_detailTok;
   const el=document.getElementById("panelBody");
   const L=S.products.layers[String(S.lead)];
   const conf=L.confidence[c.k], bp=L.bust_probability[c.k];
@@ -2515,10 +3454,17 @@ async function showDetail(c){
       <div class="p-meta-cell"><div class="p-meta-key">Status</div><div class="p-meta-val">${pillFor(bandOf(conf))}</div></div>
     </div>`;
 
-  el.innerHTML=tilesHTML+metaHTML+`<div style="text-align:center;padding:10px;color:var(--t3);font-size:11px">Loading explanation…</div>`;
+  const changeHTML=changePanelHTML(c);
+  el.innerHTML=tilesHTML+metaHTML+changeHTML+`<div style="text-align:center;padding:10px;color:var(--t3);font-size:11px">Loading explanation…</div>`;
 
   try{
-    const pt=await fetch(`/api/grid/${c.lat}/${c.lon}?cycle=${S.products.meta.forecast_cycle.slice(0,10)}&lead=${S.lead}`).then(r=>r.json());
+    const cycle=S.products.meta.forecast_cycle.slice(0,10);
+    const [pt,stab]=await Promise.all([
+      memoFetch(DERIVED.point,[cycle,c.lat.toFixed(3),c.lon.toFixed(3),S.lead].join("|"),
+        `/api/grid/${c.lat}/${c.lon}?cycle=${cycle}&lead=${S.lead}`),
+      fetchStability(c),
+    ]);
+    if(tok!==_detailTok) return;      // a newer selection/lead already rendered
     const errHTML=`
       <div class="p-section-title">Predicted error (ensemble mean)</div>
       <dl class="p-err-grid">
@@ -2588,9 +3534,10 @@ async function showDetail(c){
           ${sparkSVG(leads,confSeries,csLo,csHi)}
         </div>
       </div>`;
-    el.innerHTML=tilesHTML+metaHTML+errHTML+explHTML+diagHTML;
+    el.innerHTML=tilesHTML+metaHTML+changeHTML+errHTML+explHTML+diagHTML+stabilityHTML(stab);
   }catch(e){
-    el.innerHTML=tilesHTML+metaHTML+
+    if(tok!==_detailTok) return;
+    el.innerHTML=tilesHTML+metaHTML+changeHTML+
       `<div style="padding:8px;background:rgba(242,66,85,.07);border:1px solid rgba(242,66,85,.2);border-radius:var(--r);color:var(--red);font-size:11.5px;margin-top:8px">
         Detail unavailable: ${e.message}
       </div>`;
@@ -3046,9 +3993,8 @@ function renderData(D){
 function setLead(l){
   S.lead=l;
   document.querySelectorAll(".lead-btn").forEach(b=>b.classList.toggle("on",+b.dataset.l===l));
-  drawMap();
-  if(S.sel) showDetail(S.sel);
   show("overview");
+  refreshDerived();
 }
 function show(v){
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
@@ -3056,6 +4002,8 @@ function show(v){
   if(v==="model"&&!S.metrics) loadMetrics();
   if(v==="data"&&!S.datasets) loadDatasets();
   if(v==="case"&&!S.caseStudy) loadCase();
+  if(v==="intel"&&typeof fbpRenderIntel==="function") fbpRenderIntel();
+  if(v==="ops"&&typeof fbpRenderOps==="function") fbpRenderOps();
 }
 
 async function loadMetrics(){
@@ -3118,7 +4066,13 @@ async function boot(){
     if(!mapLayers.some(l=>l.key===S.layer)&&mapLayers.length) S.layer=mapLayers[0].key;
     document.getElementById("layerSel").innerHTML=mapLayers.map(l=>
       `<option value="${l.key}"${l.key===S.layer?" selected":""}>${l.label}</option>`).join("");
-    document.getElementById("layerSel").onchange=e=>{S.layer=e.target.value;_legKey=null;drawMap()};
+    document.getElementById("layerSel").onchange=e=>{S.layer=e.target.value;refreshDerived()};
+
+    // map view mode: absolute layer vs cycle-to-cycle change
+    document.getElementById("modeSeg").addEventListener("click",ev=>{
+      const btn=ev.target.closest(".seg-btn");
+      if(btn) setMode(btn.dataset.seg);
+    });
 
     // opacity
     document.getElementById("opacity").oninput=drawMap;
@@ -3142,8 +4096,14 @@ async function boot(){
       S.products=await fetch(`/api/products?cycle=${cyc}`).then(r=>r.json());
       S.sel=null;S.hover=null;S.hoverState=-1;
       buildCellStateIndex();
+      /* derived data is keyed by cycle - drop everything for the old one */
+      DERIVED.compare.clear(); DERIVED.point.clear(); DERIVED.stability.clear();
+      if(typeof FBP!=="undefined"&&FBP.cache) FBP.cache.clear();
+      S.compare=null;
       _legKey=null;_metaKey=null;_capsKey=null;
-      renderKPIs();renderWatchlist();renderRegions();drawMap();
+      renderKPIs();renderWatchlist();renderRegions();
+      refreshDerived();
+      if(typeof fbpOnCycleChange==="function") fbpOnCycleChange();
     };
     document.getElementById("cycleSel").onchange=e=>reloadCycle(e.target.value);
     document.getElementById("cycleSelMap").onchange=e=>reloadCycle(e.target.value);
@@ -3158,7 +4118,7 @@ async function boot(){
     document.getElementById("boot").remove();
 
     renderKPIs();renderWatchlist();renderRegions();
-    drawMap();drawCsThumb();
+    refreshDerived();drawCsThumb();
 
     // keep the framing correct when the layout changes (resize, sidebar, tabs)
     if(window.ResizeObserver){

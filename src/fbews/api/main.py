@@ -20,10 +20,40 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import load_config, load_regions
+from ..derived.change import (
+    REASON_MESSAGES,
+    STATUS,
+    STATUS_LABELS,
+    aligned_change,
+    available_leads,
+    change_status,
+    cycle_gap,
+    lead_for_previous,
+    metric_spec,
+    previous_cycle,
+    valid_time,
+)
+from ..derived.stability import (
+    BUST_SLOPE_THRESHOLD,
+    RULES,
+    classify_stability,
+    trajectory,
+    volatility_signal,
+)
 from ..ingestion.sources import catalogue, probe_all
 from ..inference.run import InferenceEngine, band
 from ..preprocessing.quality import read_log
-from .schemas import GridPointResponse, HealthResponse, InferenceRequest
+from .schemas import (
+    ComparisonGrid,
+    CycleChangeReadout,
+    ForecastComparisonResponse,
+    ForecastStabilityResponse,
+    GridPointResponse,
+    HealthResponse,
+    InferenceRequest,
+    Location,
+    VolatilityReadout,
+)
 
 cfg = load_config()
 app = FastAPI(
@@ -209,6 +239,224 @@ def watchlist(cycle: str | None = None):
     return {"title": "Forecast Reliability Watchlist", "rows": p["watchlist"], "meta": p["meta"]}
 
 
+# ---------------------------------------------------------------------------
+# FEATURE 1 - Forecast Drift map
+# ---------------------------------------------------------------------------
+def _comparison_unavailable(base: dict, reason: str, message: str, **extra) -> dict:
+    return {**base, "available": False, "reason": reason, "message": message,
+            "previousLead": None, "validTime": None, "grid": None,
+            "current": [], "previous": [], "change": [], "status": [], **extra}
+
+
+@app.get("/api/forecast-comparison", response_model=ForecastComparisonResponse,
+         tags=["products"])
+def forecast_comparison(cycle: str | None = None,
+                        lead: int = Query(3, ge=1, le=10),
+                        metric: str = Query("confidence")):
+    """Cycle-to-cycle change of one layer, aligned on **valid time**.
+
+    ``features/build.py`` defines ``valid = cycle + lead days``, so comparing
+    ``cycle`` against its predecessor means using lead ``N`` now and lead
+    ``N + gap`` then.  When that lead does not exist the payload reports
+    ``available=false`` with a human-readable reason rather than returning a
+    misleading "no change" map.
+    """
+    eng = engine()
+    cur = _cycle_or_latest(cycle)
+    spec = metric_spec(metric)
+    if spec is None:
+        raise HTTPException(422, f"unknown metric {metric!r}; see /api/meta -> layers")
+
+    max_lead = max(cfg.lead_days)
+    prev = previous_cycle(eng.available_cycles(), cur)
+    base = dict(
+        cycle=cur, previousCycle=prev, lead=lead, metric=spec.key,
+        label=spec.label, units=spec.units, decimals=spec.decimals,
+        higherIsBetter=spec.higher_is_better, threshold=spec.threshold,
+        availableLeads=[],
+        statusLabels={str(k): v for k, v in STATUS_LABELS.items()},
+    )
+
+    if prev is None:
+        return _comparison_unavailable(base, "no_previous_cycle",
+                                       REASON_MESSAGES["no_previous_cycle"])
+
+    gap = cycle_gap(prev, cur)
+    leads_now = sorted(int(l) for l in cfg.lead_days)
+    usable = available_leads(prev, cur, leads_now)
+    ctx = dict(gapDays=gap, availableLeads=usable,
+               validTime=valid_time(cur, lead).isoformat())
+
+    if spec.higher_is_better is None or spec.threshold is None:
+        return _comparison_unavailable(base, "metric_not_defined",
+                                       REASON_MESSAGES["metric_not_defined"], **ctx)
+
+    prev_lead = lead_for_previous(prev, cur, lead, max_lead)
+    if prev_lead is None:
+        # `availableLeads` carries the "what *can* be compared" hint so the UI
+        # renders it once, in one style, instead of repeating it here.
+        msg = (f"Comparison unavailable for Day {lead}: the previous cycle {prev} is "
+               f"{gap} day(s) earlier, so the same valid time "
+               f"({valid_time(cur, lead).isoformat()}) needs Day {lead + gap} of that "
+               f"cycle but only Day 1-{max_lead} exists.")
+        return _comparison_unavailable(base, "same_valid_time_out_of_range", msg, **ctx)
+
+    if spec.column not in eng.frame(cur).columns or spec.column not in eng.frame(prev).columns:
+        return _comparison_unavailable(base, "metric_not_defined",
+                                       REASON_MESSAGES["metric_not_defined"], **ctx)
+
+    cur_rows = eng.frame(cur)
+    prv_rows = eng.frame(prev)
+    sc = cur_rows[cur_rows["lead"] == lead].sort_values(["lat", "lon"])
+    sp = prv_rows[prv_rows["lead"] == prev_lead].sort_values(["lat", "lon"])
+    lats = [float(v) for v in eng.assembler.lats]
+    lons = [float(v) for v in eng.assembler.lons]
+
+    def _bad(reason: str) -> dict:
+        return _comparison_unavailable(base, reason, REASON_MESSAGES[reason], **ctx)
+
+    if len(sc) == 0 or len(sc) != len(sp) or len(sc) != len(lats) * len(lons):
+        return _bad("grids_not_aligned")
+    if not np.allclose(sc[["lat", "lon"]].to_numpy(dtype="float64"),
+                       sp[["lat", "lon"]].to_numpy(dtype="float64")):
+        return _bad("grids_not_aligned")
+
+    dec = spec.decimals
+
+    def _round(series) -> list:
+        arr = series.to_numpy(dtype="float64")
+        return [None if not np.isfinite(v) else round(float(v), dec) for v in arr]
+
+    change, status = aligned_change(sc[spec.column].to_numpy(dtype="float64"),
+                                    sp[spec.column].to_numpy(dtype="float64"), spec)
+    return {**base, **ctx, "available": True, "reason": None, "message": None,
+            "previousLead": prev_lead,
+            "grid": ComparisonGrid(lat=lats, lon=lons,
+                                   shape=[len(lats), len(lons)],
+                                   resolution_deg=float(cfg.resolution)),
+            "current": _round(sc[spec.column]),
+            "previous": _round(sp[spec.column]),
+            "change": change, "status": status}
+
+
+# ---------------------------------------------------------------------------
+# FEATURE 2 - Forecast Stability + confidence trajectory
+# ---------------------------------------------------------------------------
+def _stability_at(eng: InferenceEngine, cur: str, lat: float, lon: float,
+                  lead: int, metric: str) -> ForecastStabilityResponse:
+    """Stability readout for one cell.  Shared by the point and region routes."""
+    df = eng.frame(cur)
+    nearest = int(((df["lat"] - lat) ** 2 + (df["lon"] - lon) ** 2).idxmin())
+    cell_lat, cell_lon = float(df.at[nearest, "lat"]), float(df.at[nearest, "lon"])
+    cell = df[(df["lat"] == cell_lat) & (df["lon"] == cell_lon)].sort_values("lead")
+    leads = [int(v) for v in cell["lead"]]
+    conf = [int(v) if np.isfinite(v) else None for v in cell["confidence"]]
+
+    traj_conf = trajectory(conf, leads)
+    if metric == "bust_probability":
+        bp = [None if v is None else round(1 - v / 100.0, 3) for v in conf]
+        traj = trajectory(bp, leads, higher_is_better=False,
+                          slope_threshold=BUST_SLOPE_THRESHOLD)
+    else:
+        traj = traj_conf
+
+    vol_at_lead = cell[cell["lead"] == lead]["vol_index"]
+    vol_raw = float(vol_at_lead.iloc[0]) if len(vol_at_lead) else np.nan
+    vol_index = round(vol_raw, 3) if np.isfinite(vol_raw) else None
+    volatility = VolatilityReadout(
+        index=vol_index, signal=volatility_signal(vol_index),
+        low=RULES["volatility_low"], elevated=RULES["volatility_elevated"],
+        available=vol_index is not None)
+
+    # --- revision against the previous cycle, same valid time -------------
+    max_lead = max(cfg.lead_days)
+    prev = previous_cycle(eng.available_cycles(), cur)
+    prev_lead = lead_for_previous(prev, cur, lead, max_lead) if prev else None
+    cycle_change = CycleChangeReadout(
+        available=False, current=None, previous=None, change=None,
+        status=STATUS["unavailable"], label=STATUS_LABELS[STATUS["unavailable"]],
+        previousCycle=prev, previousLead=prev_lead,
+        validTime=valid_time(cur, lead).isoformat(), reason=None)
+
+    cycle_delta = None
+    cur_conf = conf[leads.index(lead)] if lead in leads else None
+    if prev is None:
+        cycle_change.reason = "no_previous_cycle"
+    elif prev_lead is None:
+        cycle_change.reason = "same_valid_time_out_of_range"
+    else:
+        prev_cell = eng.frame(prev)
+        prv = prev_cell[(prev_cell["lat"] == cell_lat) & (prev_cell["lon"] == cell_lon)
+                        & (prev_cell["lead"] == prev_lead)]["confidence"]
+        prv_conf = int(prv.iloc[0]) if len(prv) and np.isfinite(prv.iloc[0]) else None
+        if cur_conf is None or prv_conf is None:
+            cycle_change.reason = "no_data"
+        else:
+            status = change_status(metric_spec("confidence"), cur_conf, prv_conf)
+            cycle_delta = cur_conf - prv_conf
+            cycle_change.available = True
+            cycle_change.current = cur_conf
+            cycle_change.previous = prv_conf
+            cycle_change.change = cycle_delta
+            cycle_change.status = status
+            cycle_change.label = STATUS_LABELS[status]
+
+    stability = classify_stability(traj_conf["classification"], vol_index, cycle_delta)
+    return ForecastStabilityResponse(
+        cycle=cur, previousCycle=prev,
+        location=Location(lat=cell_lat, lon=cell_lon,
+                          region=str(cell["region"].iloc[0]) if len(cell) else None),
+        leadDay=lead, metric=metric, trajectory=traj, volatility=volatility,
+        cycleChange=cycle_change, stability=stability)
+
+
+@app.get("/api/forecast-stability", response_model=ForecastStabilityResponse,
+         tags=["products"])
+def forecast_stability(lat: float = Query(...), lon: float = Query(...),
+                       cycle: str | None = None,
+                       lead: int = Query(3, ge=1, le=10),
+                       metric: str = Query("confidence",
+                                           pattern="^(confidence|bust_probability)$")):
+    """Stability class and lead-time trajectory for one grid cell.
+
+    Everything returned is derived from values the pipeline already computes:
+    the confidence/bust series across leads, the Forecast Volatility Index and
+    the revision against the previous cycle at the same valid time.  See
+    ``fbews.derived.stability`` for the documented thresholds.
+    """
+    d = cfg.domain
+    if not (d["lat_min"] - 1 <= lat <= d["lat_max"] + 1
+            and d["lon_min"] - 1 <= lon <= d["lon_max"] + 1):
+        raise HTTPException(400, "coordinates outside the configured domain")
+    return _stability_at(engine(), _cycle_or_latest(cycle), lat, lon, lead, metric)
+
+
+@app.get("/api/forecast-stability-regions", tags=["products"])
+def forecast_stability_regions(cycle: str | None = None,
+                               lead: int = Query(3, ge=1, le=10)):
+    """Stability readout at the centre of every configured analysis region.
+
+    One frame load serves all regions; the centroid is snapped to the nearest
+    grid cell by the same code path as the point route.
+    """
+    eng = engine()
+    cur = _cycle_or_latest(cycle)
+    out = []
+    for r in load_regions():
+        bb = r.get("bbox")
+        if not bb or len(bb) != 4:
+            continue
+        la, lo = (bb[0] + bb[1]) / 2.0, (bb[2] + bb[3]) / 2.0
+        try:
+            ro = _stability_at(eng, cur, la, lo, lead, "confidence")
+        except Exception:
+            continue
+        out.append({"region": r["id"], "name": r.get("name"), "kind": r.get("kind"),
+                    "centroid": {"lat": round(la, 3), "lon": round(lo, 3)},
+                    "readout": ro})
+    return {"cycle": cur, "lead": lead, "regions": out}
+
+
 @app.get("/api/grid/{lat}/{lon}", response_model=GridPointResponse, tags=["products"])
 def grid_point(lat: float, lon: float, cycle: str | None = None,
                lead: int = Query(3, ge=1, le=10)):
@@ -385,6 +633,15 @@ def export_csv(cycle: str | None = None, lead: int = Query(3, ge=1, le=10)):
 
     return PlainTextResponse("\n".join(lines), media_type="text/csv", headers={
         "Content-Disposition": f'attachment; filename="fbews_{c}_D{lead}.csv"'})
+
+
+# ---------------------------------------------------------------------------
+# FORECAST INTELLIGENCE / OPERATIONS CENTER (mounted late so the shared
+# helpers above are already defined when platform.py imports them)
+# ---------------------------------------------------------------------------
+from .platform import router as platform_router  # noqa: E402
+
+app.include_router(platform_router)
 
 
 # ---------------------------------------------------------------------------
